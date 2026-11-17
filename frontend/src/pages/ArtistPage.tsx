@@ -102,7 +102,7 @@ export function ArtistPage() {
                 <Bot className="size-6" />
               </span>
               <p className="flex-1 text-sm text-brand-ink dark:text-slate-300">{t('artist.villa.guide', { name: artist.name })}</p>
-              <Link to="/ville" className="btn-action shrink-0 rounded-full px-5 py-2.5">
+              <Link to={`/ville/${artist.id}`} className="btn-action shrink-0 rounded-full px-5 py-2.5">
                 <TrainFront className="size-4" /> {t('artist.villa.cta')}
               </Link>
             </div>

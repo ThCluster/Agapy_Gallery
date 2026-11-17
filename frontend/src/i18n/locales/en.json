@@ -657,5 +657,29 @@
       "title": "Nothing to pay for now",
       "text": "First choose a gallery to visit or an artist to support."
     }
+  },
+  "world": {
+    "loading": "Preparing the villa: materials, light and artworks…",
+    "back": "Back to the site",
+    "villa": "{{name}}’s villa",
+    "address": "No. {{n}}, Grand Avenue",
+    "guide": "{{name}}:",
+    "welcome": "Hello and welcome! I am {{name}}. Come in and follow me: I will show you my works one by one.",
+    "goodbyeTitle": "Thank you for visiting",
+    "goodbye": "Thank you for coming all this way. If a painting moved you, you can support me with a donation. See you soon in the artists’ city!",
+    "restart": "Restart the tour",
+    "pause": "Pause the tour",
+    "play": "Resume the tour",
+    "voiceOn": "Listen to the guide",
+    "voiceOff": "Mute the voice",
+    "free": "Free visit",
+    "freeHint": "Free visit: drag to look around, scroll or pinch to move. Tap the icon again to resume the guided tour.",
+    "qualityHigh": "Maximum quality (tap to save battery)",
+    "qualityLow": "Battery saver (tap for maximum quality)",
+    "welcomeTitle": "Welcome to my villa",
+    "autoComment": "Here is “{{title}}”. Take your time to look closely: every detail was thought through.",
+    "noVilla": "This villa is not open yet",
+    "noVillaHint": "The artist has not hung any work yet. Discover the other villas in the city.",
+    "seeArtists": "See the artists"
   }
 }

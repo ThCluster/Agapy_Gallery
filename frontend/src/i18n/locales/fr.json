@@ -657,5 +657,29 @@
       "title": "Rien à payer pour le moment",
       "text": "Choisissez d’abord une galerie à visiter ou un artiste à soutenir."
     }
+  },
+  "world": {
+    "loading": "Préparation de la villa : matériaux, lumière et œuvres…",
+    "back": "Retour au site",
+    "villa": "Villa de {{name}}",
+    "address": "N° {{n}}, grande avenue",
+    "guide": "{{name}} :",
+    "welcome": "Bonjour et bienvenue ! Je suis {{name}}. Entrez et suivez-moi : je vais vous présenter mes œuvres une à une.",
+    "goodbyeTitle": "Merci de votre visite",
+    "goodbye": "Merci d’être venus jusqu’ici. Si une toile vous a touchés, vous pouvez me soutenir par un don. À bientôt dans la ville des artistes !",
+    "restart": "Recommencer la visite",
+    "pause": "Mettre la visite en pause",
+    "play": "Reprendre la visite",
+    "voiceOn": "Écouter le guide",
+    "voiceOff": "Couper la voix",
+    "free": "Visite libre",
+    "freeHint": "Visite libre : glissez pour regarder autour de vous, molette ou pincement pour avancer. Touchez à nouveau l’icône pour reprendre la visite guidée.",
+    "qualityHigh": "Qualité maximale (touchez pour économiser la batterie)",
+    "qualityLow": "Mode économie (touchez pour la qualité maximale)",
+    "welcomeTitle": "Bienvenue dans ma villa",
+    "autoComment": "Voici « {{title}} ». Prenez le temps de la regarder de près : chaque détail a été pensé.",
+    "noVilla": "Cette villa n’est pas encore ouverte",
+    "noVillaHint": "L’artiste n’a pas encore accroché d’œuvre. Découvrez les autres villas de la ville.",
+    "seeArtists": "Voir les artistes"
   }
 }

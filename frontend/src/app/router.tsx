@@ -1,5 +1,4 @@
 import type React from 'react'
-import { lazy, Suspense } from 'react'
 import { createBrowserRouter } from 'react-router'
 import { RootLayout } from '@/components/layout/RootLayout'
 import { ArtistPage } from '@/pages/ArtistPage'
@@ -14,7 +13,6 @@ import { LoginPage } from '@/pages/LoginPage'
 import { SearchPage } from '@/pages/SearchPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
-const WorldPage = lazy(() => import('@/world3d/WorldPage'))
 
 /** Page chargée à la demande (allège le premier chargement du site) */
 const load = (importer: () => Promise<Record<string, unknown>>, name: string) => async () => ({ Component: (await importer())[name] as React.ComponentType })
@@ -23,6 +21,9 @@ export const router = createBrowserRouter([
   // Connexion des exposants : page plein écran, sans barre de navigation
   { path: '/connexion', element: <LoginPage />, errorElement: <ErrorPage /> },
   { path: '/mot-de-passe-oublie', element: <ForgotPasswordPage />, errorElement: <ErrorPage /> },
+  // Monde 3D : plein écran pour l'immersion (preuve de rendu : la villa d'Awa Koné)
+  { path: '/ville', lazy: load(() => import('@/world3d/WorldPage'), 'default'), errorElement: <ErrorPage /> },
+  { path: '/ville/:artistId', lazy: load(() => import('@/world3d/WorldPage'), 'default'), errorElement: <ErrorPage /> },
   // Espace artiste : réservé aux artistes connectés, avec sa propre mise en page
   // (l'administration AGAPY est gérée côté Django)
   {
@@ -59,14 +60,6 @@ export const router = createBrowserRouter([
           { path: 'sculpture', element: <DisciplinePage key="sculpture" discipline="sculpture" /> },
           { path: 'artistes/:artistId', element: <ArtistPage /> },
           { path: 'oeuvres/:artworkId', element: <ArtworkPage /> },
-          {
-            path: 'ville',
-            element: (
-              <Suspense fallback={<p className="p-8 text-center">Chargement de la ville…</p>}>
-                <WorldPage />
-              </Suspense>
-            ),
-          },
           // Pages fixes
           { path: 'qui-sommes-nous', lazy: load(() => import('@/pages/static/AboutPage'), 'AboutPage') },
           { path: 'conditions-generales', lazy: load(() => import('@/pages/static/TermsPage'), 'TermsPage') },

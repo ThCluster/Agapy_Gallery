@@ -203,7 +203,7 @@ function GalleryCard({ artist, until }: { artist: Artist; until: string | null }
         )}
 
         <div className="mt-auto flex flex-wrap gap-2 pt-6">
-          <Link to="/ville" className="btn-primary flex-1 rounded-full py-2.5">
+          <Link to={`/ville/${artist.id}`} className="btn-primary flex-1 rounded-full py-2.5">
             <TrainFront className="size-4" /> {t('freeGalleries.visit')}
           </Link>
           <Link to={`/artistes/${artist.id}`} className="btn-secondary rounded-full px-4 py-2.5" aria-label={t('freeGalleries.details', { name: artist.name })}>

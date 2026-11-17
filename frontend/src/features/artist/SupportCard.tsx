@@ -41,7 +41,7 @@ export function SupportCard({ artist }: { artist: Artist }) {
     const params = new URLSearchParams({ artiste: artist.id, zone: region })
     if (visit) params.set('visite', '1')
     if (donation) params.set('don', String(donation))
-    if (free && visit && !donation) navigate('/ville')
+    if (free && visit && !donation) navigate(`/ville/${artist.id}`)
     else navigate(`/paiement?${params}`)
   }
 

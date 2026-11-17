@@ -84,7 +84,7 @@ export function ArtworkPage() {
               <p className="mt-4 flex items-center gap-2 text-sm text-gray-500">
                 <ShieldCheck className="size-4 text-brand-green" /> {t('artist.protectedBy', { office: profile.copyrightOffice })}
               </p>
-              <Link to="/ville" className="btn-action mt-6 rounded-full px-6 py-3">
+              <Link to={`/ville/${artist.id}`} className="btn-action mt-6 rounded-full px-6 py-3">
                 <TrainFront className="size-4" /> {t('artwork.seeInVilla')}
               </Link>
             </div>

@@ -175,7 +175,7 @@ export function PaymentPage() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             {wantsVisit && (
-              <Link to="/ville" className="btn-action rounded-full px-6 py-3">
+              <Link to={`/ville/${artist.id}`} className="btn-action rounded-full px-6 py-3">
                 <TrainFront className="size-5" /> {t('payment.done.enter')}
               </Link>
             )}
