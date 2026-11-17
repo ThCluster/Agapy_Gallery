@@ -1,0 +1,236 @@
+{
+  "dashboard": {
+    "space": "Espace artiste",
+    "viewVilla": "Voir ma villa",
+    "logout": "Se déconnecter",
+    "navLabel": "Espace artiste",
+    "cancel": "Annuler",
+    "nav": {
+      "overview": "Vue d’ensemble",
+      "works": "Mes œuvres",
+      "publish": "Publier une œuvre",
+      "wallet": "Compte d’Avoir",
+      "subscription": "Abonnement",
+      "profile": "Profil"
+    },
+    "banner": {
+      "soon_one": "Votre abonnement annuel arrive à échéance demain. Sans renouvellement, votre compte sera mis en veille et vous ne pourrez plus publier.",
+      "soon_other": "Votre abonnement annuel arrive à échéance dans {{count}} jours. Sans renouvellement, votre compte sera mis en veille et vous ne pourrez plus publier.",
+      "standby": "Votre compte est en veille : renouvelez votre abonnement pour publier de nouveau.",
+      "renew": "Renouveler"
+    },
+    "overview": {
+      "eyebrow": "Vue d’ensemble",
+      "title": "Bonjour {{name}}",
+      "message": "Message AGAPY-GALLERY : vous avez une disponibilité financière de {{amount}}.",
+      "gallery": "Ma galerie",
+      "paidHint": "Les visiteurs paient la visite de votre villa.",
+      "moderation": "Modération",
+      "pending_one": "{{count}} œuvre en attente",
+      "pending_other": "{{count}} œuvres en attente",
+      "moderationHint": "Nos modérateurs vérifient chaque publication.",
+      "subUntil": "abonnement jusqu’au {{date}}"
+    },
+    "kpi": {
+      "revenue": "Revenus ce mois-ci",
+      "visits": "Visites ce mois-ci",
+      "donations": "Dons ce mois-ci",
+      "works": "Œuvres publiées",
+      "vsLastMonth": "{{delta}} vs même période du mois dernier"
+    },
+    "chart": {
+      "title": "Évolution de vos revenus",
+      "subtitle": "Part qui vous revient : 75 % des visites, 85 % des dons.",
+      "periodLabel": "Période",
+      "periods": {
+        "day": "Jour",
+        "week": "Semaine",
+        "month": "Mois",
+        "quarter": "Trimestre",
+        "year": "Année"
+      },
+      "visits": "Visites",
+      "donations": "Dons",
+      "total": "Total",
+      "period": "Période",
+      "visitCount": "Nombre de visites",
+      "showTable": "Afficher le tableau des chiffres",
+      "showChart": "Afficher le graphique"
+    },
+    "works": {
+      "title_one": "{{count}} œuvre",
+      "title_other": "{{count}} œuvres",
+      "subtitle": "Choisissez pour chaque œuvre si elle est gratuite ou payante, à tout moment.",
+      "empty": "Vous n’avez encore publié aucune œuvre.",
+      "status": {
+        "published": "Publiée",
+        "pending": "En attente de validation",
+        "rejected": "Refusée"
+      },
+      "pendingHint": "Nos modérateurs examinent votre œuvre. Vous serez prévenu par SMS et e-mail.",
+      "since": "ajoutée le {{date}}",
+      "paid": "Payante",
+      "delete": "Supprimer « {{title}} »",
+      "confirmDelete": "Confirmer la suppression"
+    },
+    "frames": {
+      "black": "Noir fin",
+      "wood": "Bois naturel",
+      "gold": "Doré",
+      "white": "Blanc galerie",
+      "none": "Sans cadre"
+    },
+    "publish": {
+      "title": "Publier une œuvre",
+      "payTitle": "Paiement de la publication",
+      "subtitle": "Chaque œuvre est vérifiée par nos modérateurs avant d’apparaître dans votre villa.",
+      "sections": {
+        "work": "L’œuvre",
+        "rights": "Auteur et droits d’auteur",
+        "presentation": "Fichier et présentation"
+      },
+      "fields": {
+        "title": "Titre de l’œuvre",
+        "summary": "Résumé de l’œuvre",
+        "summaryHint": "Racontez l’œuvre en quelques phrases (30 caractères minimum). Votre avatar s’en servira pendant la visite.",
+        "discipline": "Discipline",
+        "technique": "Technique",
+        "techniqueHint": "ex. Acrylique sur toile",
+        "height": "Hauteur (cm)",
+        "width": "Largeur (cm)",
+        "authorName": "Nom de l’artiste ou de la fondation",
+        "authorContact": "Coordonnées (téléphone ou e-mail)",
+        "copyrightOffice": "Bureau de protection de l’œuvre",
+        "copyrightOfficeHint": "ex. BURIDA pour la Côte d’Ivoire",
+        "copyrightContact": "Coordonnées du bureau",
+        "copyrightContactHint": "Adresse, téléphone ou site web",
+        "file": "Votre production",
+        "fileHint": "Photo ou création numérique de l’œuvre, en bonne qualité.",
+        "fileChoose": "Importer l’image de l’œuvre",
+        "fileFormats": "JPG, PNG ou WebP, 15 Mo maximum",
+        "frame": "Cadre virtuel",
+        "free": "Œuvre en accès gratuit",
+        "freeHint": "Vous pourrez changer ce choix à tout moment.",
+        "certify": "Je certifie être propriétaire de cette œuvre et en détenir les droits. Je sais qu’une œuvre volée entraîne l’exclusion définitive de la plateforme."
+      },
+      "preview": "Aperçu dans votre villa",
+      "untitled": "Sans titre",
+      "fee": "Droit de publication",
+      "submitFree": "Publier gratuitement",
+      "walletLabel": "Publication « {{title}} »",
+      "moderationNote": "Après paiement, votre œuvre part en validation. Une œuvre inappropriée est retirée sans remboursement.",
+      "doneTitle": "Œuvre envoyée !",
+      "doneText": "« {{title}} » est en attente de validation par nos modérateurs. Vous serez prévenu dès sa mise en ligne.",
+      "seeWorks": "Voir mes œuvres",
+      "another": "Publier une autre œuvre",
+      "blockedTitle": "Votre compte est en veille",
+      "blockedText": "Votre abonnement annuel est arrivé à échéance. Renouvelez-le pour publier de nouvelles œuvres.",
+      "errors": {
+        "summary": "Le résumé doit contenir au moins 30 caractères.",
+        "size": "Indiquez une dimension en centimètres.",
+        "file": "Importez l’image de votre œuvre.",
+        "fileSize": "L’image dépasse 15 Mo.",
+        "certify": "Vous devez certifier être propriétaire de l’œuvre."
+      }
+    },
+    "pay": {
+      "wallet": "Compte d’Avoir",
+      "walletInactive": "À activer dans « Compte d’Avoir »",
+      "walletBalance": "Solde : {{balance}}",
+      "walletLow": "Solde insuffisant ({{balance}})"
+    },
+    "wallet": {
+      "title": "Votre Compte d’Avoir",
+      "subtitle": "Une provision d’argent pour payer vos publications et renouvellements en un clic, sans ressortir votre carte ou votre téléphone. Son usage est facultatif.",
+      "balance": "Solde disponible",
+      "active": "Activé",
+      "inactive": "Désactivé",
+      "activeHint": "Utilisable pour vos paiements",
+      "inactiveHint": "Activez-le quand vous voulez",
+      "topUp": "Recharger",
+      "topUpMomo": "Recharge mobile money",
+      "topUpCard": "Recharge par carte",
+      "topUpPay": "Recharger {{amount}}",
+      "topUpDone": "Recharge effectuée !",
+      "topUpAgain": "Faire une autre recharge",
+      "history": "Historique",
+      "noHistory": "Aucune opération pour le moment."
+    },
+    "subscription": {
+      "title": "Abonnement annuel",
+      "subtitle": "Chaque année, à la date anniversaire de votre compte, celui-ci est mis en veille automatiquement. Renouvelez-le pour continuer à publier.",
+      "status": "Statut",
+      "states": {
+        "active": "Actif",
+        "soon": "Échéance proche",
+        "standby": "En veille"
+      },
+      "daysLeft_one": "Encore {{count}} jour",
+      "daysLeft_other": "Encore {{count}} jours",
+      "openedAt": "Compte ouvert le",
+      "expiresAt": "Prochaine échéance",
+      "renewTitle": "Renouveler pour un an",
+      "renewText": "Le renouvellement prolonge votre abonnement d’un an à partir de l’échéance.",
+      "fee": "Renouvellement annuel",
+      "otherZones": "Tarif Afrique. Europe : 30 € HT ; reste du monde : 35 $ HT.",
+      "walletLabel": "Renouvellement annuel",
+      "done": "Abonnement renouvelé !",
+      "doneText": "Votre compte est actif jusqu’au {{date}}."
+    },
+    "profile": {
+      "title": "Votre profil",
+      "subtitle": "Toutes vos informations restent modifiables à tout moment.",
+      "save": "Enregistrer",
+      "saved": "Modifications enregistrées",
+      "public": "Informations publiques",
+      "bio": "Biographie",
+      "login": "Identifiant (téléphone)",
+      "loginHint": "Votre numéro sert d’identifiant : un numéro = un compte. Pour un autre atelier, ouvrez un compte avec un autre numéro.",
+      "gallery": "Ma galerie",
+      "galleryText": "Rendez votre galerie gratuite pour vous faire connaître, puis payante quand vous le décidez.",
+      "freeHint": "Les visiteurs entrent sans payer ; ils peuvent vous faire un don.",
+      "paidHint": "La visite coûte 300 F CFA (1 € en Europe, 1,5 $ ailleurs).",
+      "until": "Gratuite jusqu’au",
+      "untilHint": "Laissez vide pour une gratuité sans limite de durée.",
+      "payout": "Recevoir vos gains",
+      "password": "Mot de passe",
+      "pwd": {
+        "current": "Mot de passe actuel",
+        "next": "Nouveau mot de passe",
+        "confirm": "Confirmer le mot de passe"
+      },
+      "pwdNote": "Un SMS de confirmation vous sera envoyé après chaque changement.",
+      "errors": {
+        "mismatch": "Les deux mots de passe ne sont pas identiques."
+      }
+    }
+  },
+  "forgot": {
+    "back": "Retour à la connexion",
+    "phone": {
+      "title": "Mot de passe oublié",
+      "text": "Indiquez votre numéro de téléphone : nous vous enverrons un code par SMS.",
+      "submit": "Recevoir le code"
+    },
+    "code": {
+      "title": "Saisissez le code",
+      "text": "Un code à 6 chiffres a été envoyé par SMS au {{phone}}.",
+      "label": "Code reçu par SMS",
+      "hint": "Le code est valable 10 minutes.",
+      "submit": "Vérifier le code",
+      "resend": "Renvoyer le code"
+    },
+    "password": {
+      "title": "Nouveau mot de passe",
+      "text": "Choisissez un mot de passe de 8 à 12 caractères, avec des lettres et des chiffres.",
+      "submit": "Enregistrer"
+    },
+    "done": {
+      "title": "Mot de passe modifié",
+      "text": "Vous pouvez maintenant vous connecter avec votre nouveau mot de passe."
+    },
+    "errors": {
+      "code": "Le code contient 6 chiffres."
+    }
+  }
+}

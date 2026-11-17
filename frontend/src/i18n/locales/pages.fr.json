@@ -1,0 +1,369 @@
+{
+  "static": {
+    "common": {
+      "draftNote": "Projet de conditions générales, à faire valider par un juriste avant publication",
+      "toc": "Sommaire",
+      "updated": "Dernière mise à jour : {{date}}",
+      "toComplete": "[à compléter]",
+      "contactUs": "Nous écrire"
+    },
+    "about": {
+      "eyebrow": "Qui sommes-nous ?",
+      "titleStart": "Rapprocher l’art",
+      "titleEnd": "de chacun",
+      "lead": "AGAPY-GALLERY est une galerie d’art virtuelle en D-VR-360° où les artistes exposent leurs œuvres électroniques ou les photographies améliorées de leurs œuvres manuelles. Une ville entière dédiée à l’art, ouverte à tous, depuis n’importe quel écran.",
+      "visionEyebrow": "Notre vision",
+      "visionTitle": "La culture à portée de main",
+      "vision": [
+        "L’art africain est foisonnant, mais trop souvent invisible : peu de galeries, des coûts d’exposition élevés, un public éloigné des lieux de culture.",
+        "AGAPY-GALLERY renverse cette logique. Au lieu de demander au public de venir à la galerie, nous amenons la galerie au public, et nous offrons à chaque artiste un lieu d’exposition permanent, visible du monde entier."
+      ],
+      "objectivesEyebrow": "Nos objectifs",
+      "objectivesTitle": "Sept engagements",
+      "objectives": [
+        "Construire une galerie d’exposition virtuelle pour les peintres, photographes, sculpteurs et tous les créateurs.",
+        "Donner à chaque artiste la chance d’exposer et de se faire connaître.",
+        "Contribuer à créer une véritable économie autour des œuvres des artistes.",
+        "Participer à l’enrichissement des artistes et à l’amélioration de leurs conditions de vie.",
+        "Démocratiser l’accès à l’art et à la culture pour tous.",
+        "Contribuer à l’éducation et à l’instruction par l’art.",
+        "Participer au développement de nos pays."
+      ],
+      "conceptEyebrow": "Le concept",
+      "conceptTitle": "Une ville privée et écologique, dédiée à l’art",
+      "conceptLead": "Chaque artiste y possède sa villa en duplex, avec une adresse. La visite se vit comme un voyage.",
+      "concept": [
+        { "title": "L’arrivée en train", "text": "Le visiteur arrive dans la ville à bord d’un train futuriste, silencieux et panoramique." },
+        { "title": "« Où allez-vous ? »", "text": "Une voiturette sans chauffeur l’accueille, lui demande sa destination et le conduit jusqu’à la villa choisie." },
+        { "title": "La villa de l’artiste", "text": "Chaque artiste dispose d’une villa en duplex, à une adresse précise, où ses œuvres sont accrochées." },
+        { "title": "Une visite guidée", "text": "L’avatar de l’artiste reçoit le visiteur et le guide d’œuvre en œuvre." }
+      ],
+      "targetsEyebrow": "Pour qui ?",
+      "targetsTitle": "Des artistes du monde entier, des visiteurs de tous âges",
+      "targets": [
+        { "title": "Les artistes", "text": "Artistes de tous pays, respectueux de critères éthiques et moraux, avec une priorité donnée à l’Afrique." },
+        { "title": "Les visiteurs", "text": "Amateurs, collectionneurs, élèves, familles : la ville est ouverte à tous les âges, sans création de compte." }
+      ],
+      "ownerEyebrow": "Qui porte le projet ?",
+      "ownerTitle": "Global’Actions Holding",
+      "ownerText": "AGAPY-GALLERY est la propriété exclusive de Global’Actions Holding (G’A HOLDING), société basée à Abidjan, en Côte d’Ivoire.",
+      "slogan": "« L’Action au service du développement »",
+      "ctaArtist": "Ouvrir ma galerie",
+      "ctaVisit": "Visiter la ville",
+      "imageAlt": "Une salle d’exposition baignée de lumière"
+    },
+    "terms": {
+      "eyebrow": "Conditions générales",
+      "title": "Conditions générales d’utilisation et de vente",
+      "lead": "Ces conditions encadrent l’utilisation d’AGAPY-GALLERY par les visiteurs, les artistes et les fondations. Elles reprennent les règles du cahier des charges.",
+      "sections": [
+        {
+          "id": "comptes",
+          "title": "1. Comptes et accès",
+          "body": [
+            "La visite de la ville et des galeries ne nécessite aucun compte : les visiteurs naviguent librement.",
+            "La création d’un compte est obligatoire uniquement pour les artistes et les fondations qui souhaitent exposer. Le titulaire indique sa civilité (Monsieur, Madame) ou sa raison sociale."
+          ],
+          "items": [
+            "Un artiste peut ouvrir plusieurs comptes, par exemple sous plusieurs pseudonymes, mais chaque compte est rattaché à un numéro de téléphone unique.",
+            "L’identifiant de connexion est le numéro de téléphone, précédé de l’indicatif du pays.",
+            "Le mot de passe comporte de 8 à 12 caractères, lettres et chiffres. Il peut être modifié à tout moment.",
+            "L’artiste peut modifier l’ensemble de ses informations à tout moment depuis son espace."
+          ]
+        },
+        {
+          "id": "ouverture",
+          "title": "2. Ouverture du compte",
+          "body": ["L’ouverture d’un compte d’hébergement est payante et comprend une publication gratuite."],
+          "items": [
+            "Afrique : 10 000 F CFA HT, soit 12 000 F CFA TTC (TVA 20 %).",
+            "Europe : 30 € HT.",
+            "Reste du monde : 35 $ HT.",
+            "Paiement par carte bancaire ou par mobile money."
+          ]
+        },
+        {
+          "id": "renouvellement",
+          "title": "3. Renouvellement annuel",
+          "body": [
+            "À chaque date anniversaire, le compte est automatiquement mis en veille : l’artiste ne peut plus publier de nouvelles œuvres.",
+            "La réactivation coûte chaque année 10 000 F CFA HT en Afrique, 30 € HT en Europe et 35 $ HT dans le reste du monde."
+          ]
+        },
+        {
+          "id": "publication",
+          "title": "4. Publication d’une œuvre",
+          "body": ["La publication d’une œuvre nécessite un compte actif. L’éditeur doit être le propriétaire de l’œuvre et fournir :"],
+          "items": [
+            "le titre de l’œuvre ;",
+            "les coordonnées de l’artiste ou de la fondation ;",
+            "un résumé de l’œuvre ;",
+            "le nom et les coordonnées de son bureau de droits d’auteur (par exemple le BURIDA en Côte d’Ivoire)."
+          ],
+          "after": [
+            "Tarif par publication : 2 500 F CFA HT (+ 500 F de TVA, soit 3 000 F CFA TTC) en Afrique, 20 € HT en Europe, 25 $ HT dans le reste du monde.",
+            "Chaque publication est soumise à un délai de validation par l’équipe de modération avant sa mise en ligne."
+          ]
+        },
+        {
+          "id": "moderation",
+          "title": "5. Modération",
+          "body": ["AGAPY-GALLERY veille au respect de critères éthiques et moraux."],
+          "items": [
+            "Une œuvre jugée scandaleuse ou inappropriée est retirée sans remboursement. L’artiste est inscrit sur une liste rouge et ne peut plus publier pendant au moins 3 mois.",
+            "La publication d’une œuvre volée entraîne l’exclusion définitive de son auteur."
+          ]
+        },
+        {
+          "id": "galeries",
+          "title": "6. Galerie gratuite ou payante",
+          "body": [
+            "L’artiste choisit le statut de sa galerie, gratuite ou payante, et peut le modifier à tout moment.",
+            "La gratuité peut être limitée dans le temps, à la discrétion de l’artiste."
+          ]
+        },
+        {
+          "id": "visites",
+          "title": "7. Prix des visites et répartition",
+          "body": ["Le prix d’une visite de galerie payante est de 250 F CFA HT (+ 50 F de TVA, soit 300 F CFA) en Afrique, 1 € en Europe et 1,5 $ dans le reste du monde. Les 250 F HT sont répartis ainsi :"],
+          "items": [
+            "Artiste ou fondation : 75 %",
+            "AGAPY-GALLERY : 20 %",
+            "Bureau de droits d’auteur : 2 %",
+            "Compte de provision AGAPY-GALLERY : 2 %",
+            "Provision AGAPY-GALLERY : 1 %"
+          ]
+        },
+        {
+          "id": "dons",
+          "title": "8. Dons",
+          "body": ["Les visiteurs peuvent soutenir un artiste par un don. 85 % du montant est reversé à l’artiste, 15 % à AGAPY-GALLERY."]
+        },
+        {
+          "id": "provision",
+          "title": "9. Compte de provision",
+          "body": ["Une partie des sommes perçues est conservée sur un compte de provision, traçable artiste par artiste. Il permet de traiter les éventuelles réclamations d’autres contributeurs à une œuvre."]
+        },
+        {
+          "id": "avoir",
+          "title": "10. Compte d’Avoir",
+          "body": [
+            "Le Compte d’Avoir est un porte-monnaie prépayé facultatif, qui permet à l’artiste de régler ses publications et ses renouvellements.",
+            "Il existe dès la souscription, est inactif par défaut et peut être activé ou désactivé à tout moment."
+          ]
+        },
+        {
+          "id": "reversements",
+          "title": "11. Reversements",
+          "body": ["Les sommes dues à l’artiste lui sont versées sur son compte bancaire (IBAN) et/ou par mobile money, selon son choix."]
+        }
+      ]
+    },
+    "legal": {
+      "eyebrow": "Infos légales",
+      "title": "Mentions légales",
+      "lead": "Informations sur l’éditeur du site, son hébergement, la propriété intellectuelle et la protection de vos données.",
+      "publisherTitle": "Éditeur du site",
+      "publisherText": "AGAPY-GALLERY est la propriété exclusive de :",
+      "company": "Global’Actions Holding (G’A HOLDING)",
+      "slogan": "« L’Action au service du développement »",
+      "addressLabel": "Adresse",
+      "address": "01 BP 11543 Abidjan 01, Côte d’Ivoire",
+      "phoneLabel": "Téléphone",
+      "capitalLabel": "Capital social",
+      "capital": "1 000 000 F CFA",
+      "rccmLabel": "RCCM",
+      "rccm": "TPI d’Abidjan N° CI-ABJ-2009-B-4628",
+      "directorLabel": "Directeur de la publication",
+      "hostTitle": "Hébergement",
+      "hostLabel": "Hébergeur",
+      "sections": [
+        {
+          "id": "propriete",
+          "title": "Propriété intellectuelle",
+          "body": [
+            "Les œuvres exposées appartiennent à leurs auteurs. Elles sont protégées par le droit d’auteur, par l’intermédiaire du bureau de droits d’auteur de chaque artiste (par exemple le BURIDA en Côte d’Ivoire). Toute reproduction sans l’accord de l’auteur est interdite.",
+            "Les autres contenus du site (textes, logo, interface, ville 3D) sont la propriété de G’A HOLDING. © G’A HOLDING, tous droits réservés."
+          ]
+        },
+        {
+          "id": "donnees",
+          "title": "Données personnelles",
+          "body": [
+            "Les données personnelles sont traitées conformément à la loi ivoirienne n° 2013-450 du 19 juin 2013 relative à la protection des données à caractère personnel, sous le contrôle de l’ARTCI (Autorité de Régulation des Télécommunications/TIC de Côte d’Ivoire).",
+            "Seules les données nécessaires au fonctionnement du service sont collectées. Les visiteurs n’ont pas besoin de créer de compte.",
+            "Vous disposez d’un droit d’accès, de rectification et de suppression de vos données. Pour l’exercer, écrivez-nous depuis la page Contact."
+          ]
+        },
+        {
+          "id": "cookies",
+          "title": "Cookies",
+          "body": [
+            "AGAPY-GALLERY n’utilise que des cookies et stockages techniques, indispensables au fonctionnement du site : la mémorisation de votre langue et de votre zone tarifaire.",
+            "Aucun cookie publicitaire ni de mesure d’audience tierce n’est déposé."
+          ]
+        }
+      ],
+      "contactCta": "Exercer mes droits"
+    },
+    "partners": {
+      "eyebrow": "Partenaires",
+      "titleStart": "Ensemble, faire",
+      "titleEnd": "vivre l’art",
+      "lead": "AGAPY-GALLERY se construit avec celles et ceux qui partagent sa vision. Voici les partenaires pressentis avec lesquels nous souhaitons travailler.",
+      "disclaimer": "Partenaires pressentis : aucun partenariat n’est encore conclu. Les emplacements ci-dessous sont réservés.",
+      "logoPlaceholder": "Votre logo ici",
+      "categories": [
+        { "key": "copyright", "title": "Bureaux de droits d’auteur", "text": "Protéger les œuvres et reverser leur part aux auteurs, comme le BURIDA en Côte d’Ivoire." },
+        { "key": "culture", "title": "Institutions culturelles", "text": "Musées, ministères et centres culturels qui souhaitent exposer au-delà de leurs murs." },
+        { "key": "payment", "title": "Opérateurs de paiement mobile money", "text": "Permettre à chacun de payer une visite, un don ou une publication depuis son téléphone." },
+        { "key": "schools", "title": "Écoles et universités d’art", "text": "Offrir aux étudiants une première vitrine et des visites pédagogiques." },
+        { "key": "foundations", "title": "Fondations et mécènes", "text": "Soutenir les artistes, financer des galeries gratuites et des expositions thématiques." },
+        { "key": "media", "title": "Médias", "text": "Faire découvrir les artistes au grand public et relayer les événements de la ville." }
+      ],
+      "ctaEyebrow": "Rejoignez-nous",
+      "ctaTitle": "Devenir partenaire",
+      "ctaText": "Vous représentez une institution, une entreprise ou un média ? Parlons de ce que nous pouvons construire ensemble.",
+      "ctaButton": "Devenir partenaire"
+    },
+    "contact": {
+      "eyebrow": "Contact",
+      "title": "Parlons d’art",
+      "lead": "Une question sur une visite, votre galerie, une publicité ou un partenariat ? Notre équipe vous répond.",
+      "formTitle": "Nous écrire",
+      "name": "Nom et prénom",
+      "namePlaceholder": "Aya Kouassi",
+      "contact": "E-mail ou téléphone",
+      "contactPlaceholder": "aya@exemple.com ou +225 07 00 00 00 00",
+      "contactHint": "Pour vous répondre, nous utiliserons ce moyen de contact.",
+      "subject": "Vous êtes",
+      "subjectPlaceholder": "Choisissez un sujet",
+      "subjects": {
+        "visitor": "Visiteur",
+        "artist": "Artiste",
+        "advertiser": "Annonceur",
+        "partnership": "Partenariat",
+        "press": "Presse",
+        "other": "Autre"
+      },
+      "message": "Votre message",
+      "messagePlaceholder": "Écrivez votre message…",
+      "messageCount": "{{count}}/20 caractères minimum",
+      "submit": "Envoyer le message",
+      "sending": "Envoi en cours…",
+      "successTitle": "Message envoyé",
+      "successText": "Merci {{name}}, nous avons bien reçu votre message. Nous vous répondrons très vite.",
+      "again": "Écrire un autre message",
+      "errors": {
+        "name": "Indiquez votre nom.",
+        "contact": "Indiquez un e-mail valide ou un numéro de téléphone.",
+        "subject": "Choisissez un sujet.",
+        "message": "Votre message doit contenir au moins 20 caractères."
+      },
+      "coordsTitle": "Nos coordonnées",
+      "responseTitle": "Délai de réponse",
+      "responseText": "Nous répondons généralement sous 48 heures ouvrées, du lundi au vendredi."
+    },
+    "forum": {
+      "eyebrow": "Forum",
+      "title": "La place du village",
+      "lead": "Un lieu d’échange entre artistes et passionnés : conseils, techniques, droits d’auteur, événements et vie de la ville 3D.",
+      "readOpen": "La lecture est ouverte à tous, sans compte.",
+      "postNote": "Pour publier un sujet ou répondre, connectez-vous avec votre compte artiste.",
+      "publish": "Publier un sujet",
+      "all": "Toutes les catégories",
+      "categoriesLabel": "Catégories du forum",
+      "categories": {
+        "mutual": { "title": "Entraide entre artistes", "text": "Conseils, retours d’expérience et premiers pas sur AGAPY." },
+        "techniques": { "title": "Techniques et matériaux", "text": "Pigments, supports, prises de vue, numérisation des œuvres." },
+        "copyright": { "title": "Droits d’auteur", "text": "Protéger ses œuvres, bureaux de droits, contrats." },
+        "events": { "title": "Expositions et événements", "text": "Vernissages, salons, appels à candidatures." },
+        "city": { "title": "La ville 3D", "text": "Villas, accrochage, idées pour la ville." }
+      },
+      "topicsCount_one": "{{count}} sujet",
+      "topicsCount_other": "{{count}} sujets",
+      "replies_one": "{{count}} réponse",
+      "replies_other": "{{count}} réponses",
+      "by": "par {{author}}",
+      "lastActivity": "Dernière activité",
+      "pinned": "Épinglé",
+      "topic": "Sujet",
+      "repliesHeader": "Réponses"
+    },
+    "ads": {
+      "eyebrow": "Publicité sur AGAPY",
+      "titleStart": "Votre marque au cœur",
+      "titleEnd": "d’une ville d’art",
+      "lead": "Bannières, panneaux dans la ville 3D, clips vidéo sur l’accueil, AGAPY TV : touchez un public curieux, cultivé et connecté, en Afrique et dans le monde.",
+      "ctaClip": "Diffuser un clip dès 3 000 F",
+      "ctaQuote": "Demander un devis",
+      "stats": [
+        { "value": "7", "label": "formats publicitaires" },
+        { "value": "24 h", "label": "de diffusion pour un clip" },
+        { "value": "50", "label": "annonceurs par jour sur l’accueil" }
+      ],
+      "formatsEyebrow": "Nos formats",
+      "formatsTitle": "Une place pour chaque message",
+      "formatsLead": "Des formats web classiques aux panneaux de la ville en 3D, choisissez la visibilité qui vous ressemble.",
+      "preview": "Aperçu",
+      "formats": {
+        "banner": { "title": "Bannière classique", "size": "468 × 60", "text": "Le format horizontal incontournable, en tête ou au fil des pages." },
+        "skyscraper": { "title": "Skyscraper", "size": "160 × 600", "text": "Une colonne verticale qui reste visible pendant la lecture." },
+        "buttons": { "title": "Boutons", "size": "88 × 31", "text": "De 1 à 3 boutons discrets, idéals pour signer une présence." },
+        "billboard": { "title": "Billboard", "size": "336 × 280", "text": "Un grand encart carré, parfait pour une image forte." },
+        "skin": { "title": "Habillage de page ou de site", "size": "Sur mesure", "text": "Votre univers encadre tout le contenu, des deux côtés de l’écran." },
+        "city": { "title": "Panneaux dans la ville 3D", "size": "Ville 3D", "text": "Des panneaux publicitaires le long des avenues de la ville, vus par chaque visiteur." },
+        "tv": { "title": "AGAPY TV", "size": "En direct", "text": "Diffusions en direct : colloques, formations, séminaires, concerts. Associez votre nom à l’événement." }
+      },
+      "live": "En direct",
+      "clipsEyebrow": "Clips vidéo sur l’accueil",
+      "clipsTitle": "30 secondes pour vous faire connaître",
+      "clipsLead": "Ouvert à tous, abonné ou non, sans engagement.",
+      "clipsRules": [
+        "Clip de 30 secondes maximum.",
+        "3 000 F CFA HT, soit 3 300 F CFA sur facture, pour 24 heures de diffusion.",
+        "Jusqu’à 50 vidéos de 50 annonceurs différents, diffusées en boucle pendant 24 heures.",
+        "Au-delà, les vidéos attendent dans une file classée par date de dépôt et se remplacent automatiquement."
+      ],
+      "form": {
+        "title": "Réserver mon clip",
+        "video": "Votre vidéo",
+        "videoHint": "Formats vidéo courants, 30 secondes maximum.",
+        "videoChoose": "Choisir une vidéo",
+        "videoChange": "Changer de vidéo",
+        "videoChecking": "Vérification de la durée…",
+        "videoOk": "Durée : {{seconds}} s, conforme",
+        "clipTitle": "Titre du clip",
+        "clipTitlePlaceholder": "Lancement de notre collection",
+        "advertiser": "Nom de l’annonceur",
+        "advertiserPlaceholder": "Votre entreprise ou votre nom",
+        "contact": "Téléphone ou e-mail",
+        "contactPlaceholder": "+225 07 00 00 00 00",
+        "start": "Date de début souhaitée",
+        "summary": "Récapitulatif",
+        "duration": "Diffusion",
+        "durationValue": "24 heures en boucle",
+        "priceHt": "Montant HT",
+        "priceTtc": "Montant facturé",
+        "pay": "Payer {{amount}}",
+        "paying": "Paiement en cours…",
+        "secure": "Paiement simulé : aucune somme n’est débitée pour le moment.",
+        "successTitle": "Clip réservé !",
+        "successText": "« {{title}} » est enregistré. Il occupe la position n° {{position}} dans la file d’attente et sera diffusé à partir du {{date}}, après validation par notre équipe.",
+        "again": "Réserver un autre clip"
+      },
+      "errors": {
+        "video": "Ajoutez votre vidéo.",
+        "videoType": "Ce fichier n’est pas une vidéo.",
+        "videoTooLong": "Votre vidéo dure {{seconds}} s : la durée maximale est de 30 secondes. Raccourcissez-la puis réessayez.",
+        "videoUnreadable": "Impossible de lire cette vidéo. Essayez un autre format (MP4 par exemple).",
+        "title": "Indiquez le titre du clip.",
+        "advertiser": "Indiquez le nom de l’annonceur.",
+        "contact": "Indiquez un téléphone ou un e-mail valide.",
+        "start": "Choisissez une date à partir d’aujourd’hui."
+      },
+      "quoteTitle": "Un projet sur mesure ?",
+      "quoteText": "Habillage, panneaux dans la ville, parrainage d’une émission AGAPY TV : notre équipe prépare une proposition adaptée à votre budget."
+    }
+  }
+}

@@ -1,0 +1,661 @@
+{
+  "nav": {
+    "home": "Home",
+    "search": "Search",
+    "visit": "Visit the 3D city",
+    "login": "Log in",
+    "register": "Become an exhibitor"
+  },
+  "common": {
+    "discover": "Discover",
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "discipline": {
+    "peinture": "Painting",
+    "photographie": "Photography",
+    "sculpture": "Sculpture"
+  },
+  "header": {
+    "announce": "New: take the train to the artists’ 3D city.",
+    "announceCta": "All aboard →",
+    "home": "AGAPY-GALLERY, home",
+    "menu": "Menu",
+    "language": "Language",
+    "favorites": "My favourites",
+    "searchPlaceholder": "Search for an artist, an artwork…",
+    "categories": "Disciplines",
+    "categories_": {
+      "discover": "Discover",
+      "painting": "Painting",
+      "photography": "Photography",
+      "sculpture": "Sculpture",
+      "artists": "Artists",
+      "freeGalleries": "Free galleries"
+    },
+    "links": {
+      "painting": "Painting",
+      "photography": "Photography",
+      "sculpture": "Sculpture",
+      "artists": "Artists",
+      "freeGalleries": "Free galleries",
+      "exhibit": "Exhibit"
+    }
+  },
+  "artwork": {
+    "visit": "Visit",
+    "recommended": "Recommended by AGAPY",
+    "free": "Free",
+    "villa": "Villa",
+    "seeInVilla": "See it in the villa",
+    "moreBy": "More by {{name}}",
+    "onlyOne": "This is the only artwork published by this artist so far."
+  },
+  "ads": {
+    "label": "Advertisement",
+    "short": "Ad",
+    "cta": "Your ad here",
+    "slot": "Ad space {{format}}: advertise on AGAPY",
+    "section": "Advertising spaces",
+    "eyebrow": "Advertisers",
+    "title": "Showcase your brand to art lovers",
+    "text": "Banners, billboard, buttons, page skins and billboards inside the 3D city.",
+    "more": "All formats"
+  },
+  "home": {
+    "hero": {
+      "eyebrow": "Virtual art gallery · Africa",
+      "titleStart": "Step into the city",
+      "titleEnd": "of artists",
+      "subtitle": "Take the train, hop into your cart and visit the villas of the continent’s painters, photographers and sculptors.",
+      "cta": "Take the train",
+      "counter": "artists exhibit",
+      "visitPrice": "to visit a gallery",
+      "slides": {
+        "villa": "The villas of the Grand Avenue",
+        "gallery": "The exhibition halls",
+        "hall": "A gallery bathed in light"
+      }
+    },
+    "recommended": {
+      "eyebrow": "Selection",
+      "title": "Recommended by AGAPY",
+      "subtitle": "The best of African art, picked every week by our team.",
+      "cta": "See all artworks"
+    },
+    "trending": {
+      "eyebrow": "Trending",
+      "title": "Artists in the spotlight",
+      "subtitle": "The most visited villas this week.",
+      "cta": "All artists"
+    },
+    "clips": {
+      "eyebrow": "Now showing",
+      "title": "Today’s clips",
+      "subtitle": "Up to 50 clips of 30 seconds, played on a loop for 24 hours.",
+      "ad": "Advertisement",
+      "play": "Play",
+      "pause": "Pause",
+      "next": "Up next",
+      "offerTitle": "Show your clip",
+      "offerText": "30 s on screen for 24 h: {{ht}} excl. VAT, {{ttc}} invoiced. No subscription, no commitment.",
+      "offerCta": "Publish my clip",
+      "tvTitle": "AGAPY TV · live",
+      "tvText": "Talks, workshops, concerts: next show Thursday at 6 pm"
+    },
+    "how": {
+      "eyebrow": "The experience",
+      "title": "How a visit works",
+      "subtitle": "A real stroll, like in a video game: pick your avatar and let yourself be guided.",
+      "steps": {
+        "station": {
+          "title": "The futuristic station",
+          "text": "You step off the train and walk through a station lined with artworks."
+        },
+        "cart": {
+          "title": "“Where are you going?”",
+          "text": "A driverless cart is waiting and takes you to the artist’s address."
+        },
+        "wall": {
+          "title": "The entrance wall",
+          "text": "In the garden, a low wall shows the artist’s name, address and one artwork."
+        },
+        "guide": {
+          "title": "The artist guides you",
+          "text": "Their avatar shows you around the halls and comments on every piece."
+        }
+      },
+      "modesTitle": "Come however you like",
+      "modes": {
+        "solo": "On your own",
+        "couple": "As a couple",
+        "family": "With family",
+        "friends": "With friends",
+        "class": "With a class"
+      }
+    },
+    "options": {
+      "eyebrow": "Support artists",
+      "title": "Visit, donate, or both",
+      "subtitle": "In front of every gallery, the choice is yours. Every gesture supports an artist.",
+      "visit": "Visit the gallery",
+      "donate": "Make a donation",
+      "both": "Visit and donate",
+      "gift": "donation",
+      "visitNote": {
+        "africa": "250 F CFA + VAT. 75% goes to the artist.",
+        "europe": "Excluding VAT. 75% goes to the artist.",
+        "world": "Excluding VAT. 75% goes to the artist."
+      },
+      "donateNote": "of every donation goes straight to the artist.",
+      "bothNote": "The full gesture: discover the work and support its creator.",
+      "free": "Some artists open their gallery for free.",
+      "freeCta": "See free galleries"
+    },
+    "villa": {
+      "eyebrow": "In the spotlight",
+      "title": "Villa of the week",
+      "subtitle": "Every week, one artist’s villa in the spotlight.",
+      "villaOf": "{{name}}’s villa",
+      "wall": "Entrance wall",
+      "address": "{{n}} Grand Avenue",
+      "description": "A painter of village life in Mali, Aminata Traoré hangs her canvases in three light-filled halls. Her avatar welcomes you in the garden and tells the story of every painting.",
+      "hall": "Hall {{n}}",
+      "visit": "Visit · {{price}}",
+      "donate": "Donate"
+    },
+    "free": {
+      "eyebrow": "Open access",
+      "title": "Free galleries",
+      "subtitle": "Artists who open their doors for free to get known.",
+      "cta": "See free galleries"
+    },
+    "interviews": {
+      "eyebrow": "Portraits",
+      "title": "AGAPY encounters",
+      "cta": "All encounters",
+      "meet": "Meet"
+    },
+    "favorites": {
+      "eyebrow": "Favourites",
+      "title": "Picked by the team",
+      "subtitle": "The artworks that moved us this month."
+    },
+    "exhibit": {
+      "eyebrow": "Artists and foundations",
+      "title": "Exhibit your art in your own villa",
+      "text": "Open your account, hang your works in the frames of your choice and reach visitors worldwide. You decide: paid gallery, free gallery or call for donations.",
+      "quote": "“My gallery is open day and night, to the whole world.”",
+      "ht": "excl. VAT",
+      "ttc": "incl. VAT",
+      "prices": {
+        "signup": "Account opening",
+        "signupNote": "First publication included",
+        "publication": "Publishing an artwork",
+        "publicationNote": "Approved by our moderators",
+        "renewal": "Yearly renewal",
+        "renewalNote": "On your account’s anniversary"
+      },
+      "perks": {
+        "revenue": "Your earnings paid via mobile money or to your bank account (IBAN)",
+        "donations": "75% of every visit and 85% of every donation go to you",
+        "copyright": "Your copyright registered with your collecting society (BURIDA…)",
+        "moderation": "Quality galleries, with every artwork checked",
+        "wallet": "A Credit Account to pay for your publications in one click"
+      },
+      "terms": "Read the terms and conditions"
+    },
+    "reassurance": {
+      "payment": {
+        "title": "Easy payment",
+        "text": "Mobile money or bank card"
+      },
+      "verified": {
+        "title": "Verified artworks",
+        "text": "Every publication is approved by our moderators"
+      },
+      "artists": {
+        "title": "Artists get paid",
+        "text": "Earnings go straight to the artists"
+      }
+    }
+  },
+  "footer": {
+    "colAgapy": "AGAPY",
+    "colVisitors": "Visitors",
+    "colArtists": "Artists",
+    "colLegal": "Information",
+    "about": "About us",
+    "terms": "Terms and conditions",
+    "legal": "Legal notice",
+    "partners": "Partners",
+    "contact": "Contact",
+    "forum": "Forum",
+    "wallet": "Credit Account",
+    "publish": "Publish an artwork",
+    "dashboard": "Dashboard",
+    "advertise": "Advertise",
+    "newsletterTitle": "Stay in the loop",
+    "newsletterText": "New villas, exhibitions and encounters, once a month.",
+    "emailPlaceholder": "Your email address",
+    "newsletterThanks": "Thank you! You are subscribed.",
+    "payments": "Payment methods",
+    "rights": "All rights reserved",
+    "backToTop": "Back to top",
+    "apps": "Mobile apps",
+    "appStoreSmall": "Download on the",
+    "appStore": "App Store",
+    "googlePlaySmall": "Get it on",
+    "googlePlay": "Google Play",
+    "appsPrice": "Download: 100 F CFA",
+    "region": "Pricing zone",
+    "regions": {
+      "africa": "Africa (F CFA)",
+      "europe": "Europe (€)",
+      "world": "Rest of the world ($)"
+    }
+  },
+  "notFound": {
+    "title": "Page not found",
+    "back": "Back to home"
+  },
+  "comingSoon": "Page under construction",
+  "error": {
+    "eyebrow": "Oops",
+    "title": "Something went wrong",
+    "text": "This page could not be displayed. Reload it or go back home.",
+    "reload": "Reload the page"
+  },
+  "search": {
+    "label": "Search type",
+    "submit": "Search",
+    "modes": {
+      "artist": "An artist",
+      "artwork": "An artwork",
+      "free": "Free galleries"
+    },
+    "placeholders": {
+      "artist": "Artist name, e.g. Awa Koné",
+      "artwork": "Artwork title, e.g. Lumière de la lagune",
+      "free": "City, country or discipline (optional)"
+    },
+    "page": {
+      "eyebrow": "Search",
+      "title": "Find an artist or an artwork",
+      "artistFilter": "Narrow by artist",
+      "tryArtists": "Try for example:",
+      "tryWorks": "A few artworks to search for:",
+      "artistCount_one": "{{count}} artist for “{{q}}”",
+      "artistCount_other": "{{count}} artists for “{{q}}”",
+      "artistNotFoundText": "No artist named “{{q}}” has an account on the platform. Check the spelling or browse the list of artists.",
+      "didYouMean": "Did you mean",
+      "artworkNotFound": "The artwork you are looking for is not on AGAPY-GALLERY",
+      "artworkNotFoundText": "No artwork titled “{{q}}” is published on the platform.",
+      "artworkNotFoundBy": "No artwork “{{q}}” by “{{artist}}” is published on the platform.",
+      "artworkCount_one": "{{count}} artwork for “{{q}}”",
+      "artworkCount_other": "{{count}} artworks for “{{q}}”",
+      "artworkCountBy_one": "{{count}} artwork “{{q}}” by {{artist}}",
+      "artworkCountBy_other": "{{count}} artworks “{{q}}” by {{artist}}",
+      "homonymsTitle_one": "Several artworks share this title",
+      "homonymsTitle_other": "{{count}} artists have an artwork with this title",
+      "homonymsText": "Narrow down your search by choosing the artist:",
+      "visit": "Visit · {{price}}"
+    }
+  },
+  "artist": {
+    "villaOf": "{{name}}’s villa",
+    "address": "No. {{n}}, Grand Avenue",
+    "freeGallery": "Free gallery",
+    "paidGallery": "Paid visit",
+    "verified": "Verified artist",
+    "visits": "{{n}} visits",
+    "memberSince": "Member since {{year}}",
+    "share": "Share",
+    "linkCopied": "Link copied",
+    "sectionsNav": "Page sections",
+    "sections": {
+      "works": "Artworks",
+      "villa": "The villa",
+      "about": "About",
+      "support": "Support"
+    },
+    "wall": {
+      "title": "Entrance wall",
+      "text": "In the garden, this low wall welcomes you at the villa entrance. Step through the door to discover the halls."
+    },
+    "worksEyebrow": "Collection",
+    "worksTitle_one": "{{count}} artwork on display",
+    "worksTitle_other": "{{count}} artworks on display",
+    "noWorks": "No artworks published yet.",
+    "technique": "Technique",
+    "dimensions": "Dimensions",
+    "protectedBy": "Artworks protected by {{office}}",
+    "close": "Close",
+    "villa": {
+      "eyebrow": "In the 3D city",
+      "title": "The villa and its halls",
+      "text": "A light-filled duplex villa where {{name}}’s works hang in the frames chosen by the artist.",
+      "hall": "Hall {{n}}",
+      "guide": "{{name}}’s avatar welcomes you in the garden and comments on every piece during the visit.",
+      "cta": "Ride there by cart"
+    },
+    "about": {
+      "eyebrow": "Biography",
+      "title": "About {{name}}",
+      "discipline": "Discipline",
+      "location": "City",
+      "since": "Member since"
+    },
+    "support": {
+      "eyebrow": "Support the artist",
+      "title": "Visit {{name}}’s gallery",
+      "visit": "Visit the gallery",
+      "visitNote": {
+        "africa": "250 F CFA + VAT · 75% goes to the artist",
+        "europe": "Excluding VAT · 75% goes to the artist",
+        "world": "Excluding VAT · 75% goes to the artist"
+      },
+      "visitFreeNote": "This artist opens their gallery for free",
+      "donate": "Make a donation",
+      "donateNote": "{{share}}% of the donation goes straight to the artist",
+      "customAmount": "Other amount",
+      "total": "Total",
+      "pay": "Continue to payment",
+      "goFree": "Visit for free",
+      "methods": "Mobile money or bank card, no sign-up needed",
+      "stop": "No commitment: you can also simply carry on with your stroll."
+    },
+    "more": {
+      "eyebrow": "Keep strolling",
+      "title": "More villas to visit"
+    },
+    "notFound": {
+      "title": "The artist you are looking for is not on AGAPY-GALLERY",
+      "text": "Check the spelling of the name or browse the list of artists.",
+      "cta": "Search for an artist"
+    },
+    "backToArtists": "All artists"
+  },
+  "artists": {
+    "eyebrow": "Exhibitors",
+    "title": "All artists",
+    "subtitle": "Painters, photographers and sculptors: pick a villa and step into their world.",
+    "searchLabel": "Name, city or country",
+    "filters": {
+      "all": "All",
+      "peinture": "Painting",
+      "photographie": "Photography",
+      "sculpture": "Sculpture",
+      "free": "Free galleries"
+    }
+  },
+  "login": {
+    "eyebrow": "Exhibitor area",
+    "titleStart": "Welcome back",
+    "titleEnd": "to the gallery",
+    "subtitle": "Log in to manage your villa, your artworks and your earnings.",
+    "phone": "Phone number",
+    "country": "Country and dialling code",
+    "africa": "Africa",
+    "otherCountries": "Other countries",
+    "phoneHelp": "Your login is your phone number, with the country code.",
+    "password": "Password",
+    "forgot": "Forgot your password?",
+    "passwordHelp": "8 to 12 characters, letters and numbers.",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "remember": "Remember me",
+    "submit": "Log in",
+    "submitting": "Logging in…",
+    "noAccount": "Not an exhibitor yet?",
+    "noAccountText": "Open your villa in the artists’ city, with your first publication included.",
+    "multiAccount": "One account per phone number. To open several studios (several pseudonyms), use a different number for each.",
+    "showcase": "Artworks on display",
+    "errors": {
+      "phoneRequired": "Enter your phone number.",
+      "phoneInvalid": "This number does not match the selected country.",
+      "passwordRequired": "Enter your password.",
+      "passwordFormat": "The password has 8 to 12 characters, with letters and numbers."
+    },
+    "backHome": "Back to home"
+  },
+  "signup": {
+    "eyebrow": "Become an exhibitor",
+    "title": "Open your villa",
+    "promise": "Your villa in the artists’ city, open to the whole world, with your first publication included.",
+    "optional": "optional",
+    "back": "Back",
+    "next": "Continue",
+    "pay": "Confirm and pay",
+    "paying": "Processing payment…",
+    "haveAccount": "Already an exhibitor? Log in",
+    "assistance": "You may ask a trusted person of your choice to help you fill in this form. All your information can be edited later from your account.",
+    "steps": {
+      "civility": "Title",
+      "identity": "Identity",
+      "contact": "Contact details",
+      "payout": "Get paid",
+      "payment": "Payment"
+    },
+    "stepsHint": {
+      "civility": "Artist or foundation",
+      "identity": "Who are you?",
+      "contact": "Phone, address, photo",
+      "payout": "Mobile money or IBAN",
+      "payment": "Opening fee"
+    },
+    "civility": {
+      "title": "You are…",
+      "text": "Choose your title. A foundation or group registers under its company name.",
+      "mr": "Mr",
+      "mrHint": "Artist, individual",
+      "mrs": "Mrs",
+      "mrsHint": "Artist, individual",
+      "org": "Company name",
+      "orgHint": "Foundation or group of people"
+    },
+    "identity": {
+      "title": "Your identity",
+      "text": "This information appears on your artist profile, except your date of birth.",
+      "orgTitle": "Your foundation",
+      "orgText": "The official details of the foundation or group."
+    },
+    "contact": {
+      "title": "Your contact details",
+      "text": "Your phone number will be your login."
+    },
+    "payout": {
+      "title": "Get paid",
+      "text": "Where should we send the money from your visits and donations? You can choose both.",
+      "momo": "Mobile money",
+      "recommended": "Recommended",
+      "momoText": "Receive your earnings straight on your phone.",
+      "bank": "Bank account (IBAN)",
+      "bankText": "Receive your earnings by bank transfer.",
+      "both": "You can change these details at any time from your account."
+    },
+    "payment": {
+      "title": "Opening fee",
+      "text": "A one-time payment to open your hosting account, with your first publication included.",
+      "invoice": "Summary",
+      "hosting": "Hosting fee",
+      "vat": "VAT (20%)",
+      "freePublication": "First publication",
+      "included": "Included",
+      "total": "Total to pay",
+      "zone": {
+        "africa": "Africa rate ({{country}}).",
+        "europe": "Europe rate ({{country}}), excluding VAT.",
+        "world": "International rate ({{country}}), excluding VAT."
+      },
+      "method": "Payment method",
+      "momo": "Mobile money",
+      "momoHint": "Orange Money, MTN, Moov, Wave…",
+      "card": "Bank card",
+      "cardHint": "Visa, Mastercard",
+      "termsStart": "I have read and accept the",
+      "termsEnd": "and I certify that I own the artworks I will publish."
+    },
+    "fields": {
+      "lastName": "Last name",
+      "firstNames": "First names",
+      "birthDate": "Date of birth",
+      "birthPlace": "Place of birth",
+      "artistName": "Artist name (pseudonym)",
+      "artistNameHint": "The name shown on your villa and your artworks.",
+      "orgName": "Company name",
+      "foundedDate": "Date of creation",
+      "foundedPlace": "Place of creation",
+      "phone": "Phone",
+      "phoneHint": "This number, with the country code, will be your login. One account per number.",
+      "email": "Email address",
+      "emailHint": "Your login details will be sent to this address and by SMS.",
+      "country": "Country",
+      "city": "City",
+      "commune": "District or city",
+      "village": "Village or neighbourhood",
+      "gps": "GPS address",
+      "gpsLocate": "Use my location",
+      "photo": "Artist photo",
+      "logo": "Foundation image or logo",
+      "photoHint": "It will appear on your profile and in your villa.",
+      "photoChoose": "Choose an image",
+      "photoFormats": "JPG, PNG or WebP, 5 MB max",
+      "links": "Social networks and website",
+      "website": "Website",
+      "facebook": "Facebook",
+      "instagram": "Instagram",
+      "operator": "Operator",
+      "operatorChoose": "Choose an operator",
+      "momoNumber": "Mobile money number",
+      "accountHolder": "Account holder",
+      "bankName": "Bank",
+      "ibanHint": "Automatically checked with its check digits."
+    },
+    "errors": {
+      "required": "This field is required.",
+      "civility": "Choose a title to continue.",
+      "futureDate": "The date cannot be in the future.",
+      "phone": "This number does not match the selected country.",
+      "email": "This email address is not valid.",
+      "gps": "Expected format: latitude, longitude (e.g. 5.36000, -4.00830).",
+      "gpsUnavailable": "Location unavailable: type it in or leave it empty.",
+      "photo": "Add a photo or an image.",
+      "photoType": "The file must be an image.",
+      "photoSize": "The image is larger than 5 MB.",
+      "url": "Invalid web address (it must start with https://).",
+      "payout": "Choose at least one way to receive your earnings.",
+      "iban": "This IBAN is not valid. Please check it.",
+      "terms": "You must accept the terms and conditions."
+    },
+    "done": {
+      "eyebrow": "Welcome to the artists’ city",
+      "title": "Your villa is open!",
+      "text": "Your payment is confirmed. You can now publish your first artwork, free of charge.",
+      "login": "Your login",
+      "credentials": "Your password has been sent by email and SMS. You can change it at any time.",
+      "walletTitle": "Credit Account",
+      "walletState": "Created, inactive",
+      "walletText": "Activate it whenever you like to pay for publications in one click.",
+      "publish": "Publish my first artwork"
+    }
+  },
+  "freeGalleries": {
+    "eyebrow": "Open access",
+    "titleStart": "Free",
+    "titleEnd": "galleries",
+    "subtitle": "Artists who open their doors for free to get known. Step in, wander around, be surprised.",
+    "statGalleries": "open galleries",
+    "statPrice": "to visit",
+    "count_one": "{{count}} free gallery",
+    "count_other": "{{count}} free galleries",
+    "until": "Free until {{date}}",
+    "permanent": "Free with no time limit",
+    "works_one": "{{count}} artwork",
+    "works_other": "{{count}} artworks",
+    "visit": "Visit for free",
+    "details": "See {{name}}’s villa",
+    "empty": "No free gallery matches your search.",
+    "emptyText": "Try another name, city or discipline.",
+    "worksEyebrow": "To discover",
+    "worksTitle": "Open-access artworks",
+    "donateTitle": "Free, but not without value",
+    "donateText": "Even in a free gallery, you can make a donation to the artist: 85% goes straight to them.",
+    "artistTitle": "Are you an artist?",
+    "artistText": "Make your gallery free to get known, for as long as you like, then switch to paid visits whenever you decide."
+  },
+  "disciplinePage": {
+    "eyebrow": "Discipline",
+    "statArtists_one": "artist",
+    "statArtists_other": "artists",
+    "statWorks_one": "artwork on display",
+    "statWorks_other": "artworks on display",
+    "sortLabel": "Sort artworks",
+    "sort": {
+      "featured": "AGAPY selection",
+      "title": "Title (A → Z)",
+      "artist": "Artist (A → Z)"
+    },
+    "access": {
+      "all": "All",
+      "free": "Free",
+      "paid": "Paid"
+    },
+    "worksTitle_one": "{{count}} artwork",
+    "worksTitle_other": "{{count}} artworks",
+    "empty": "No artwork matches this filter.",
+    "discover": "Discover",
+    "peinture": {
+      "title": "Painting",
+      "intro": "Acrylic, oil, batik, mosaic: the colour and gesture of Africa’s painters, hung in the bright halls of their villas.",
+      "artists": "The painters"
+    },
+    "photographie": {
+      "title": "Photography",
+      "intro": "Faces, markets, the light of the Sahel: the eye of the continent’s photographers, in fine-art prints and limited editions.",
+      "artists": "The photographers"
+    },
+    "sculpture": {
+      "title": "Sculpture",
+      "intro": "Ebony, bronze, clay: powerful forms, heirs to ancient craftsmanship, to discover on their pedestals.",
+      "artists": "The sculptors"
+    }
+  },
+  "payment": {
+    "eyebrow": "Secure payment",
+    "title": "Complete your visit",
+    "subtitle": "No sign-up needed: pay in seconds by mobile money or bank card.",
+    "back": "Back to {{name}}’s villa",
+    "momoHint": "You will receive a confirmation request on this phone.",
+    "cardRedirect": "You will be redirected to our payment partner’s secure page (3-D Secure). AGAPY-GALLERY never sees your card number.",
+    "email": "Email to receive the receipt",
+    "emailHint": "Your receipt will be sent to this address.",
+    "pay": "Pay {{amount}}",
+    "waitingMomo": "Confirm the payment on your phone",
+    "waitingMomoText": "Enter your PIN to approve the request you received.",
+    "waitingCard": "Redirecting to the secure payment page…",
+    "waitingCardText": "Do not close this window.",
+    "noAccount": "No account is needed to visit or donate.",
+    "summary": {
+      "visit": "Gallery visit",
+      "donation": "Donation to the artist",
+      "visitShare": "75% of the visit goes to the artist.",
+      "donationShare": "{{share}}% of the donation goes to the artist.",
+      "edit": "Change my selection"
+    },
+    "done": {
+      "eyebrow": "Payment confirmed",
+      "titleVisit": "Enjoy your visit!",
+      "titleDonation": "Thank you for your donation to {{name}}!",
+      "textVisit": "Your access to {{name}}’s gallery is open. Take the train: a cart is waiting for you at the station.",
+      "textDonation": "Your generosity keeps African art alive. The artist has been notified of your support.",
+      "reference": "Reference:",
+      "enter": "Take the train",
+      "backToVilla": "Back to the villa"
+    },
+    "nothing": {
+      "title": "Nothing to pay for now",
+      "text": "First choose a gallery to visit or an artist to support."
+    }
+  }
+}

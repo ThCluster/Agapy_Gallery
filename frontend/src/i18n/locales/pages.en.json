@@ -1,0 +1,369 @@
+{
+  "static": {
+    "common": {
+      "draftNote": "Draft terms and conditions, to be reviewed by a lawyer before publication",
+      "toc": "Contents",
+      "updated": "Last updated: {{date}}",
+      "toComplete": "[to be completed]",
+      "contactUs": "Write to us"
+    },
+    "about": {
+      "eyebrow": "About us",
+      "titleStart": "Bringing art",
+      "titleEnd": "closer to everyone",
+      "lead": "AGAPY-GALLERY is a D-VR-360° virtual art gallery where artists exhibit their digital works or enhanced photographs of their handmade works. A whole city dedicated to art, open to all, from any screen.",
+      "visionEyebrow": "Our vision",
+      "visionTitle": "Culture within reach",
+      "vision": [
+        "African art is thriving, yet too often invisible: few galleries, high exhibition costs, and audiences far from cultural venues.",
+        "AGAPY-GALLERY turns this around. Instead of asking the public to come to the gallery, we bring the gallery to the public, and give every artist a permanent exhibition space, visible worldwide."
+      ],
+      "objectivesEyebrow": "Our goals",
+      "objectivesTitle": "Seven commitments",
+      "objectives": [
+        "Build a virtual exhibition gallery for painters, photographers, sculptors and all creators.",
+        "Give every artist the chance to exhibit and become known.",
+        "Help create a real economy around artists’ works.",
+        "Contribute to artists’ income and better living conditions.",
+        "Make art and culture accessible to everyone.",
+        "Contribute to education and learning through art.",
+        "Contribute to the development of our countries."
+      ],
+      "conceptEyebrow": "The concept",
+      "conceptTitle": "A private, ecological city dedicated to art",
+      "conceptLead": "Every artist owns a duplex villa with its own address. Each visit feels like a journey.",
+      "concept": [
+        { "title": "Arriving by train", "text": "Visitors enter the city aboard a quiet, panoramic futuristic train." },
+        { "title": "“Where are you going?”", "text": "A driverless cart greets them, asks for their destination and drives them to the chosen villa." },
+        { "title": "The artist’s villa", "text": "Each artist has a duplex villa at a precise address, where their works are hung." },
+        { "title": "A guided tour", "text": "The artist’s avatar welcomes visitors and guides them from one work to the next." }
+      ],
+      "targetsEyebrow": "Who is it for?",
+      "targetsTitle": "Artists from around the world, visitors of all ages",
+      "targets": [
+        { "title": "Artists", "text": "Artists from every country who respect ethical and moral standards, with priority given to Africa." },
+        { "title": "Visitors", "text": "Art lovers, collectors, students, families: the city is open to all ages, no account needed." }
+      ],
+      "ownerEyebrow": "Who is behind it?",
+      "ownerTitle": "Global’Actions Holding",
+      "ownerText": "AGAPY-GALLERY is the exclusive property of Global’Actions Holding (G’A HOLDING), a company based in Abidjan, Côte d’Ivoire.",
+      "slogan": "“Action serving development”",
+      "ctaArtist": "Open my gallery",
+      "ctaVisit": "Visit the city",
+      "imageAlt": "A light-filled exhibition hall"
+    },
+    "terms": {
+      "eyebrow": "Terms and conditions",
+      "title": "Terms of use and sale",
+      "lead": "These terms govern the use of AGAPY-GALLERY by visitors, artists and foundations. They follow the rules set out in the project specification.",
+      "sections": [
+        {
+          "id": "comptes",
+          "title": "1. Accounts and access",
+          "body": [
+            "Visiting the city and the galleries requires no account: visitors browse freely.",
+            "An account is required only for artists and foundations who wish to exhibit. The holder states their title (Mr, Mrs) or company name."
+          ],
+          "items": [
+            "An artist may open several accounts, for example under several pseudonyms, but each account is linked to a unique phone number.",
+            "The login is the phone number, preceded by the country code.",
+            "The password is 8 to 12 characters long, letters and digits. It can be changed at any time.",
+            "Artists can edit all their information at any time from their dashboard."
+          ]
+        },
+        {
+          "id": "ouverture",
+          "title": "2. Opening an account",
+          "body": ["Opening a hosting account is a paid service and includes one free publication."],
+          "items": [
+            "Africa: 10,000 F CFA excl. VAT, i.e. 12,000 F CFA incl. VAT (20% VAT).",
+            "Europe: €30 excl. VAT.",
+            "Rest of the world: $35 excl. VAT.",
+            "Payment by bank card or mobile money."
+          ]
+        },
+        {
+          "id": "renouvellement",
+          "title": "3. Annual renewal",
+          "body": [
+            "On each anniversary date, the account is automatically put on standby: the artist can no longer publish new works.",
+            "Reactivation costs 10,000 F CFA excl. VAT in Africa, €30 excl. VAT in Europe and $35 excl. VAT in the rest of the world, every year."
+          ]
+        },
+        {
+          "id": "publication",
+          "title": "4. Publishing a work",
+          "body": ["Publishing a work requires an active account. The publisher must own the work and provide:"],
+          "items": [
+            "the title of the work;",
+            "the contact details of the artist or foundation;",
+            "a summary of the work;",
+            "the name and contact details of their copyright office (for example BURIDA in Côte d’Ivoire)."
+          ],
+          "after": [
+            "Price per publication: 2,500 F CFA excl. VAT (+ 500 F VAT, i.e. 3,000 F CFA incl. VAT) in Africa, €20 excl. VAT in Europe, $25 excl. VAT in the rest of the world.",
+            "Every publication goes through a validation period by the moderation team before going online."
+          ]
+        },
+        {
+          "id": "moderation",
+          "title": "5. Moderation",
+          "body": ["AGAPY-GALLERY ensures that ethical and moral standards are respected."],
+          "items": [
+            "A work deemed scandalous or inappropriate is removed without refund. The artist is placed on a red list and cannot publish for at least 3 months.",
+            "Publishing a stolen work leads to the permanent exclusion of its publisher."
+          ]
+        },
+        {
+          "id": "galeries",
+          "title": "6. Free or paid gallery",
+          "body": [
+            "Artists choose whether their gallery is free or paid, and can change this at any time.",
+            "Free access may be limited in time, at the artist’s discretion."
+          ]
+        },
+        {
+          "id": "visites",
+          "title": "7. Visit prices and revenue split",
+          "body": ["A visit to a paid gallery costs 250 F CFA excl. VAT (+ 50 F VAT, i.e. 300 F CFA) in Africa, €1 in Europe and $1.5 in the rest of the world. The 250 F excl. VAT are split as follows:"],
+          "items": [
+            "Artist or foundation: 75%",
+            "AGAPY-GALLERY: 20%",
+            "Copyright office: 2%",
+            "AGAPY-GALLERY provision account: 2%",
+            "AGAPY-GALLERY provision: 1%"
+          ]
+        },
+        {
+          "id": "dons",
+          "title": "8. Donations",
+          "body": ["Visitors can support an artist with a donation. 85% of the amount goes to the artist, 15% to AGAPY-GALLERY."]
+        },
+        {
+          "id": "provision",
+          "title": "9. Provision account",
+          "body": ["Part of the sums collected is kept in a provision account, traceable artist by artist. It is used to handle any claims from other contributors to a work."]
+        },
+        {
+          "id": "avoir",
+          "title": "10. Credit account",
+          "body": [
+            "The Credit account (Compte d’Avoir) is an optional prepaid wallet that artists can use to pay for publications and renewals.",
+            "It exists from subscription, is inactive by default and can be activated or deactivated at any time."
+          ]
+        },
+        {
+          "id": "reversements",
+          "title": "11. Payouts",
+          "body": ["Sums owed to the artist are paid to their bank account (IBAN) and/or by mobile money, as they choose."]
+        }
+      ]
+    },
+    "legal": {
+      "eyebrow": "Legal information",
+      "title": "Legal notice",
+      "lead": "Information about the site publisher, hosting, intellectual property and the protection of your data.",
+      "publisherTitle": "Site publisher",
+      "publisherText": "AGAPY-GALLERY is the exclusive property of:",
+      "company": "Global’Actions Holding (G’A HOLDING)",
+      "slogan": "“Action serving development”",
+      "addressLabel": "Address",
+      "address": "01 BP 11543 Abidjan 01, Côte d’Ivoire",
+      "phoneLabel": "Phone",
+      "capitalLabel": "Share capital",
+      "capital": "1,000,000 F CFA",
+      "rccmLabel": "Trade register (RCCM)",
+      "rccm": "Abidjan Commercial Court No. CI-ABJ-2009-B-4628",
+      "directorLabel": "Publication director",
+      "hostTitle": "Hosting",
+      "hostLabel": "Hosting provider",
+      "sections": [
+        {
+          "id": "propriete",
+          "title": "Intellectual property",
+          "body": [
+            "The works on display belong to their authors. They are protected by copyright through each artist’s copyright office (for example BURIDA in Côte d’Ivoire). Any reproduction without the author’s consent is prohibited.",
+            "All other site content (texts, logo, interface, 3D city) is the property of G’A HOLDING. © G’A HOLDING, all rights reserved."
+          ]
+        },
+        {
+          "id": "donnees",
+          "title": "Personal data",
+          "body": [
+            "Personal data is processed in accordance with Ivorian law No. 2013-450 of 19 June 2013 on the protection of personal data, under the supervision of ARTCI (the Côte d’Ivoire Telecommunications/ICT Regulatory Authority).",
+            "Only the data needed to run the service is collected. Visitors do not need to create an account.",
+            "You have the right to access, correct and delete your data. To exercise it, write to us from the Contact page."
+          ]
+        },
+        {
+          "id": "cookies",
+          "title": "Cookies",
+          "body": [
+            "AGAPY-GALLERY only uses technical cookies and storage that the site needs to work: remembering your language and pricing zone.",
+            "No advertising or third-party analytics cookies are set."
+          ]
+        }
+      ],
+      "contactCta": "Exercise my rights"
+    },
+    "partners": {
+      "eyebrow": "Partners",
+      "titleStart": "Together, let’s",
+      "titleEnd": "bring art to life",
+      "lead": "AGAPY-GALLERY is being built with those who share its vision. Here are the prospective partners we hope to work with.",
+      "disclaimer": "Prospective partners: no partnership has been signed yet. The spaces below are reserved.",
+      "logoPlaceholder": "Your logo here",
+      "categories": [
+        { "key": "copyright", "title": "Copyright offices", "text": "Protecting works and paying authors their share, like BURIDA in Côte d’Ivoire." },
+        { "key": "culture", "title": "Cultural institutions", "text": "Museums, ministries and cultural centres wishing to exhibit beyond their walls." },
+        { "key": "payment", "title": "Mobile money operators", "text": "Letting everyone pay for a visit, a donation or a publication from their phone." },
+        { "key": "schools", "title": "Art schools and universities", "text": "Giving students a first showcase and educational visits." },
+        { "key": "foundations", "title": "Foundations and patrons", "text": "Supporting artists, funding free galleries and themed exhibitions." },
+        { "key": "media", "title": "Media", "text": "Introducing artists to the general public and covering events in the city." }
+      ],
+      "ctaEyebrow": "Join us",
+      "ctaTitle": "Become a partner",
+      "ctaText": "Do you represent an institution, a company or a media outlet? Let’s talk about what we can build together.",
+      "ctaButton": "Become a partner"
+    },
+    "contact": {
+      "eyebrow": "Contact",
+      "title": "Let’s talk about art",
+      "lead": "A question about a visit, your gallery, advertising or a partnership? Our team will get back to you.",
+      "formTitle": "Write to us",
+      "name": "Full name",
+      "namePlaceholder": "Aya Kouassi",
+      "contact": "Email or phone",
+      "contactPlaceholder": "aya@example.com or +225 07 00 00 00 00",
+      "contactHint": "We will use this to reply to you.",
+      "subject": "You are",
+      "subjectPlaceholder": "Choose a subject",
+      "subjects": {
+        "visitor": "Visitor",
+        "artist": "Artist",
+        "advertiser": "Advertiser",
+        "partnership": "Partnership",
+        "press": "Press",
+        "other": "Other"
+      },
+      "message": "Your message",
+      "messagePlaceholder": "Write your message…",
+      "messageCount": "{{count}}/20 characters minimum",
+      "submit": "Send message",
+      "sending": "Sending…",
+      "successTitle": "Message sent",
+      "successText": "Thank you {{name}}, we have received your message. We will reply very soon.",
+      "again": "Write another message",
+      "errors": {
+        "name": "Please enter your name.",
+        "contact": "Please enter a valid email or phone number.",
+        "subject": "Please choose a subject.",
+        "message": "Your message must be at least 20 characters long."
+      },
+      "coordsTitle": "Our details",
+      "responseTitle": "Response time",
+      "responseText": "We usually reply within 48 working hours, Monday to Friday."
+    },
+    "forum": {
+      "eyebrow": "Forum",
+      "title": "The village square",
+      "lead": "A place for artists and art lovers to share advice, techniques, copyright questions, events and life in the 3D city.",
+      "readOpen": "Reading is open to everyone, no account needed.",
+      "postNote": "To post a topic or reply, sign in with your artist account.",
+      "publish": "Post a topic",
+      "all": "All categories",
+      "categoriesLabel": "Forum categories",
+      "categories": {
+        "mutual": { "title": "Artists helping artists", "text": "Advice, experience and first steps on AGAPY." },
+        "techniques": { "title": "Techniques and materials", "text": "Pigments, media, photography, digitising works." },
+        "copyright": { "title": "Copyright", "text": "Protecting your works, copyright offices, contracts." },
+        "events": { "title": "Exhibitions and events", "text": "Openings, fairs, calls for entries." },
+        "city": { "title": "The 3D city", "text": "Villas, hanging, ideas for the city." }
+      },
+      "topicsCount_one": "{{count}} topic",
+      "topicsCount_other": "{{count}} topics",
+      "replies_one": "{{count}} reply",
+      "replies_other": "{{count}} replies",
+      "by": "by {{author}}",
+      "lastActivity": "Last activity",
+      "pinned": "Pinned",
+      "topic": "Topic",
+      "repliesHeader": "Replies"
+    },
+    "ads": {
+      "eyebrow": "Advertising on AGAPY",
+      "titleStart": "Put your brand at the heart",
+      "titleEnd": "of a city of art",
+      "lead": "Banners, billboards in the 3D city, video clips on the home page, AGAPY TV: reach a curious, cultured and connected audience in Africa and worldwide.",
+      "ctaClip": "Run a clip from 3,000 F",
+      "ctaQuote": "Request a quote",
+      "stats": [
+        { "value": "7", "label": "advertising formats" },
+        { "value": "24 h", "label": "of airtime per clip" },
+        { "value": "50", "label": "advertisers a day on the home page" }
+      ],
+      "formatsEyebrow": "Our formats",
+      "formatsTitle": "A place for every message",
+      "formatsLead": "From classic web formats to billboards in the 3D city, choose the visibility that suits you.",
+      "preview": "Preview",
+      "formats": {
+        "banner": { "title": "Classic banner", "size": "468 × 60", "text": "The essential horizontal format, at the top or within pages." },
+        "skyscraper": { "title": "Skyscraper", "size": "160 × 600", "text": "A vertical column that stays visible while reading." },
+        "buttons": { "title": "Buttons", "size": "88 × 31", "text": "1 to 3 discreet buttons, ideal for a signature presence." },
+        "billboard": { "title": "Billboard", "size": "336 × 280", "text": "A large square slot, perfect for a strong image." },
+        "skin": { "title": "Page or site skin", "size": "Custom", "text": "Your visual world frames all the content, on both sides of the screen." },
+        "city": { "title": "Billboards in the 3D city", "size": "3D city", "text": "Billboards along the city’s avenues, seen by every visitor." },
+        "tv": { "title": "AGAPY TV", "size": "Live", "text": "Live broadcasts: conferences, training sessions, seminars, concerts. Put your name on the event." }
+      },
+      "live": "Live",
+      "clipsEyebrow": "Video clips on the home page",
+      "clipsTitle": "30 seconds to get noticed",
+      "clipsLead": "Open to everyone, subscriber or not, with no commitment.",
+      "clipsRules": [
+        "Clips of 30 seconds maximum.",
+        "3,000 F CFA excl. VAT, i.e. 3,300 F CFA invoiced, for 24 hours of airtime.",
+        "Up to 50 videos from 50 different advertisers, played in a continuous loop for 24 hours.",
+        "Beyond that, videos wait in a queue ordered by submission date and replace each other automatically."
+      ],
+      "form": {
+        "title": "Book my clip",
+        "video": "Your video",
+        "videoHint": "Common video formats, 30 seconds maximum.",
+        "videoChoose": "Choose a video",
+        "videoChange": "Change video",
+        "videoChecking": "Checking duration…",
+        "videoOk": "Duration: {{seconds}} s, accepted",
+        "clipTitle": "Clip title",
+        "clipTitlePlaceholder": "Launch of our collection",
+        "advertiser": "Advertiser name",
+        "advertiserPlaceholder": "Your company or your name",
+        "contact": "Phone or email",
+        "contactPlaceholder": "+225 07 00 00 00 00",
+        "start": "Preferred start date",
+        "summary": "Summary",
+        "duration": "Airtime",
+        "durationValue": "24 hours on loop",
+        "priceHt": "Amount excl. VAT",
+        "priceTtc": "Amount invoiced",
+        "pay": "Pay {{amount}}",
+        "paying": "Processing payment…",
+        "secure": "Simulated payment: nothing is charged for now.",
+        "successTitle": "Clip booked!",
+        "successText": "“{{title}}” has been saved. It is number {{position}} in the queue and will air from {{date}}, after approval by our team.",
+        "again": "Book another clip"
+      },
+      "errors": {
+        "video": "Please add your video.",
+        "videoType": "This file is not a video.",
+        "videoTooLong": "Your video lasts {{seconds}} s: the maximum is 30 seconds. Please shorten it and try again.",
+        "videoUnreadable": "This video cannot be read. Try another format (MP4 for example).",
+        "title": "Please enter the clip title.",
+        "advertiser": "Please enter the advertiser name.",
+        "contact": "Please enter a valid phone number or email.",
+        "start": "Please choose a date from today onwards."
+      },
+      "quoteTitle": "A custom project?",
+      "quoteText": "Page skins, billboards in the city, sponsoring an AGAPY TV programme: our team will prepare a proposal tailored to your budget."
+    }
+  }
+}

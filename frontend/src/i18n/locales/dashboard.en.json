@@ -1,0 +1,236 @@
+{
+  "dashboard": {
+    "space": "Artist area",
+    "viewVilla": "View my villa",
+    "logout": "Log out",
+    "navLabel": "Artist area",
+    "cancel": "Cancel",
+    "nav": {
+      "overview": "Overview",
+      "works": "My artworks",
+      "publish": "Publish an artwork",
+      "wallet": "Credit Account",
+      "subscription": "Subscription",
+      "profile": "Profile"
+    },
+    "banner": {
+      "soon_one": "Your yearly subscription expires tomorrow. Without renewal, your account will be put on standby and you will no longer be able to publish.",
+      "soon_other": "Your yearly subscription expires in {{count}} days. Without renewal, your account will be put on standby and you will no longer be able to publish.",
+      "standby": "Your account is on standby: renew your subscription to publish again.",
+      "renew": "Renew"
+    },
+    "overview": {
+      "eyebrow": "Overview",
+      "title": "Hello {{name}}",
+      "message": "AGAPY-GALLERY message: you have {{amount}} available.",
+      "gallery": "My gallery",
+      "paidHint": "Visitors pay to visit your villa.",
+      "moderation": "Moderation",
+      "pending_one": "{{count}} artwork pending",
+      "pending_other": "{{count}} artworks pending",
+      "moderationHint": "Our moderators check every publication.",
+      "subUntil": "subscription until {{date}}"
+    },
+    "kpi": {
+      "revenue": "Earnings this month",
+      "visits": "Visits this month",
+      "donations": "Donations this month",
+      "works": "Published artworks",
+      "vsLastMonth": "{{delta}} vs same period last month"
+    },
+    "chart": {
+      "title": "Your earnings over time",
+      "subtitle": "Your share: 75% of visits, 85% of donations.",
+      "periodLabel": "Period",
+      "periods": {
+        "day": "Day",
+        "week": "Week",
+        "month": "Month",
+        "quarter": "Quarter",
+        "year": "Year"
+      },
+      "visits": "Visits",
+      "donations": "Donations",
+      "total": "Total",
+      "period": "Period",
+      "visitCount": "Number of visits",
+      "showTable": "Show the data table",
+      "showChart": "Show the chart"
+    },
+    "works": {
+      "title_one": "{{count}} artwork",
+      "title_other": "{{count}} artworks",
+      "subtitle": "Choose for each artwork whether it is free or paid, at any time.",
+      "empty": "You have not published any artwork yet.",
+      "status": {
+        "published": "Published",
+        "pending": "Awaiting approval",
+        "rejected": "Rejected"
+      },
+      "pendingHint": "Our moderators are reviewing your artwork. You will be notified by SMS and email.",
+      "since": "added on {{date}}",
+      "paid": "Paid",
+      "delete": "Delete “{{title}}”",
+      "confirmDelete": "Confirm deletion"
+    },
+    "frames": {
+      "black": "Thin black",
+      "wood": "Natural wood",
+      "gold": "Gilded",
+      "white": "Gallery white",
+      "none": "No frame"
+    },
+    "publish": {
+      "title": "Publish an artwork",
+      "payTitle": "Publication payment",
+      "subtitle": "Every artwork is checked by our moderators before it appears in your villa.",
+      "sections": {
+        "work": "The artwork",
+        "rights": "Author and copyright",
+        "presentation": "File and presentation"
+      },
+      "fields": {
+        "title": "Artwork title",
+        "summary": "Artwork summary",
+        "summaryHint": "Describe the artwork in a few sentences (at least 30 characters). Your avatar will use it during the visit.",
+        "discipline": "Discipline",
+        "technique": "Technique",
+        "techniqueHint": "e.g. Acrylic on canvas",
+        "height": "Height (cm)",
+        "width": "Width (cm)",
+        "authorName": "Artist or foundation name",
+        "authorContact": "Contact details (phone or email)",
+        "copyrightOffice": "Copyright office",
+        "copyrightOfficeHint": "e.g. BURIDA for Côte d’Ivoire",
+        "copyrightContact": "Office contact details",
+        "copyrightContactHint": "Address, phone or website",
+        "file": "Your work",
+        "fileHint": "Photo or digital creation of the artwork, in good quality.",
+        "fileChoose": "Upload the artwork image",
+        "fileFormats": "JPG, PNG or WebP, 15 MB max",
+        "frame": "Virtual frame",
+        "free": "Free-access artwork",
+        "freeHint": "You can change this at any time.",
+        "certify": "I certify that I own this artwork and hold its rights. I understand that a stolen artwork leads to permanent exclusion from the platform."
+      },
+      "preview": "Preview in your villa",
+      "untitled": "Untitled",
+      "fee": "Publication fee",
+      "submitFree": "Publish for free",
+      "walletLabel": "Publication “{{title}}”",
+      "moderationNote": "After payment, your artwork goes to review. An inappropriate artwork is removed without refund.",
+      "doneTitle": "Artwork submitted!",
+      "doneText": "“{{title}}” is awaiting approval by our moderators. You will be notified as soon as it goes live.",
+      "seeWorks": "See my artworks",
+      "another": "Publish another artwork",
+      "blockedTitle": "Your account is on standby",
+      "blockedText": "Your yearly subscription has expired. Renew it to publish new artworks.",
+      "errors": {
+        "summary": "The summary must have at least 30 characters.",
+        "size": "Enter a size in centimetres.",
+        "file": "Upload the image of your artwork.",
+        "fileSize": "The image is larger than 15 MB.",
+        "certify": "You must certify that you own the artwork."
+      }
+    },
+    "pay": {
+      "wallet": "Credit Account",
+      "walletInactive": "Activate it in “Credit Account”",
+      "walletBalance": "Balance: {{balance}}",
+      "walletLow": "Insufficient balance ({{balance}})"
+    },
+    "wallet": {
+      "title": "Your Credit Account",
+      "subtitle": "A prepaid balance to pay for publications and renewals in one click, without reaching for your card or phone. Using it is optional.",
+      "balance": "Available balance",
+      "active": "Active",
+      "inactive": "Inactive",
+      "activeHint": "Usable for your payments",
+      "inactiveHint": "Activate it whenever you like",
+      "topUp": "Top up",
+      "topUpMomo": "Mobile money top-up",
+      "topUpCard": "Card top-up",
+      "topUpPay": "Top up {{amount}}",
+      "topUpDone": "Top-up complete!",
+      "topUpAgain": "Make another top-up",
+      "history": "History",
+      "noHistory": "No transactions yet."
+    },
+    "subscription": {
+      "title": "Yearly subscription",
+      "subtitle": "Every year, on your account’s anniversary, it is automatically put on standby. Renew it to keep publishing.",
+      "status": "Status",
+      "states": {
+        "active": "Active",
+        "soon": "Expiring soon",
+        "standby": "On standby"
+      },
+      "daysLeft_one": "{{count}} day left",
+      "daysLeft_other": "{{count}} days left",
+      "openedAt": "Account opened on",
+      "expiresAt": "Next renewal date",
+      "renewTitle": "Renew for one year",
+      "renewText": "Renewal extends your subscription by one year from the renewal date.",
+      "fee": "Yearly renewal",
+      "otherZones": "Africa rate. Europe: €30 excl. VAT; rest of the world: $35 excl. VAT.",
+      "walletLabel": "Yearly renewal",
+      "done": "Subscription renewed!",
+      "doneText": "Your account is active until {{date}}."
+    },
+    "profile": {
+      "title": "Your profile",
+      "subtitle": "All your information can be edited at any time.",
+      "save": "Save",
+      "saved": "Changes saved",
+      "public": "Public information",
+      "bio": "Biography",
+      "login": "Login (phone)",
+      "loginHint": "Your number is your login: one number = one account. For another studio, open an account with another number.",
+      "gallery": "My gallery",
+      "galleryText": "Make your gallery free to get known, then paid whenever you decide.",
+      "freeHint": "Visitors enter for free; they can make a donation.",
+      "paidHint": "A visit costs 300 F CFA (€1 in Europe, $1.5 elsewhere).",
+      "until": "Free until",
+      "untilHint": "Leave empty for free access with no time limit.",
+      "payout": "Get paid",
+      "password": "Password",
+      "pwd": {
+        "current": "Current password",
+        "next": "New password",
+        "confirm": "Confirm password"
+      },
+      "pwdNote": "A confirmation SMS will be sent after every change.",
+      "errors": {
+        "mismatch": "The two passwords do not match."
+      }
+    }
+  },
+  "forgot": {
+    "back": "Back to login",
+    "phone": {
+      "title": "Forgot your password",
+      "text": "Enter your phone number: we will send you a code by SMS.",
+      "submit": "Get the code"
+    },
+    "code": {
+      "title": "Enter the code",
+      "text": "A 6-digit code has been sent by SMS to {{phone}}.",
+      "label": "Code received by SMS",
+      "hint": "The code is valid for 10 minutes.",
+      "submit": "Check the code",
+      "resend": "Send the code again"
+    },
+    "password": {
+      "title": "New password",
+      "text": "Choose a password of 8 to 12 characters, with letters and numbers.",
+      "submit": "Save"
+    },
+    "done": {
+      "title": "Password changed",
+      "text": "You can now log in with your new password."
+    },
+    "errors": {
+      "code": "The code has 6 digits."
+    }
+  }
+}

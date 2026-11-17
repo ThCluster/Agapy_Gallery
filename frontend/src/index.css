@@ -1,0 +1,221 @@
+@import 'tailwindcss';
+
+/* Mode sombre piloté par la classe .dark sur <html> */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ───────────── Charte AGAPY ───────────── */
+@theme {
+  /* Verts */
+  --color-brand-green: #00674f; /* principal : boutons, liens, prix, bandeaux */
+  --color-brand-green-hover: #00513d; /* survol des boutons verts, « gapy » du logo */
+  --color-brand-green-pressed: #004333; /* bouton enfoncé, fin des dégradés */
+  --color-brand-green-deep: #00382b; /* fin du dégradé des bandeaux */
+
+  /* Orange : actions */
+  --color-brand-orange: #ff7518;
+  --color-brand-orange-hover: #e6630d;
+
+  /* Accents */
+  --color-brand-yellow: #f7ca44; /* accents sur fond vert, badge Prime */
+  --color-brand-night: #064459; /* espace AGAPY, badge Prime, initiales */
+  --color-brand-night-dark: #043343; /* barres d'enregistrement, infobulles */
+
+  /* Textes et fonds */
+  --color-brand-ink: #2d423b; /* texte courant */
+  --color-brand-graphite: #1e2e29; /* grands titres */
+  --color-brand-mist: #f4f7f5; /* fonds des encadrés et des espaces */
+
+  /* Mode sombre */
+  --color-night-bg: #031d27;
+  --color-night-card: #042530;
+  --color-night-field: #06303e;
+
+  /* Polices */
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-logo: 'Mulish', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ───────────── Base ───────────── */
+@layer base {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    @apply bg-white font-sans text-brand-ink antialiased dark:bg-night-bg dark:text-slate-200;
+  }
+
+  h1 {
+    @apply text-brand-graphite dark:text-white;
+  }
+}
+
+/* ───────────── Briques réutilisables ───────────── */
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+@utility status {
+  @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold;
+}
+
+/* ───────────── Composants ───────────── */
+@layer components {
+  /* Liens */
+  .link {
+    @apply text-brand-green hover:underline dark:text-emerald-400;
+  }
+
+  /* Petit titre au-dessus d'une section (« CATÉGORIES ») */
+  .eyebrow {
+    @apply text-xs font-bold tracking-[0.18em] text-brand-orange uppercase;
+  }
+
+  /* Mot mis en avant dans un titre */
+  .highlight {
+    @apply text-brand-green dark:text-emerald-400;
+  }
+
+  /* Bouton principal : Rechercher, Se connecter, Payer */
+  .btn-primary {
+    @apply btn bg-brand-green text-white hover:bg-brand-green-hover focus-visible:outline-brand-green active:bg-brand-green-pressed;
+  }
+
+  /* Bouton d'action : Visiter, Faire un don, Publier une œuvre */
+  .btn-action {
+    @apply btn bg-brand-orange text-white hover:bg-brand-orange-hover focus-visible:outline-brand-orange;
+  }
+
+  /* Bouton secondaire */
+  .btn-secondary {
+    @apply btn border border-brand-green/25 bg-white text-brand-green hover:bg-brand-mist dark:border-emerald-400/30 dark:bg-transparent dark:text-emerald-400 dark:hover:bg-night-field;
+  }
+
+  /* Bouton « Ouvrir un compte… » (animé) */
+  .btn-account {
+    @apply btn bg-brand-orange/10 text-brand-orange hover:bg-brand-orange hover:text-white;
+    animation: agapy-pulse 2.4s ease-in-out infinite;
+  }
+
+  /* Cartes et panneaux */
+  .card {
+    @apply rounded-xl border border-brand-green/15 bg-white dark:border-emerald-400/15 dark:bg-night-card;
+  }
+
+  /* Champs de formulaire */
+  .field {
+    @apply w-full rounded-lg border border-brand-green/20 bg-white px-3 py-2 text-brand-ink placeholder:text-gray-400 focus:border-brand-orange focus:ring-1 focus:ring-brand-orange focus:outline-none dark:border-emerald-400/20 dark:bg-night-field dark:text-slate-100;
+  }
+
+  /* Bandeaux mis en avant : pied de page, en-têtes des espaces */
+  .banner-green {
+    @apply text-white;
+    background-image: linear-gradient(135deg, #00674f 0%, #004333 60%, #00382b 100%);
+  }
+
+  /* Prix */
+  .price {
+    @apply font-bold text-brand-green dark:text-emerald-400;
+  }
+  .price-promo {
+    @apply font-bold text-brand-orange;
+  }
+
+  /* États */
+  .status-success {
+    @apply status bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300;
+  }
+  .status-pending {
+    @apply status bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300;
+  }
+  .status-waiting {
+    @apply status bg-blue-100 text-blue-700 dark:bg-blue-400/15 dark:text-blue-300;
+  }
+  .status-error {
+    @apply status bg-rose-100 text-rose-700 dark:bg-rose-400/15 dark:text-rose-300;
+  }
+}
+
+/* Masque la barre de défilement des carrousels (le défilement reste possible) */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/*
+ * Sections : apparition en douceur à l'arrivée à l'écran, pilotée par le défilement.
+ * Uniquement dans les navigateurs qui gèrent animation-timeline ; ailleurs le
+ * contenu est simplement visible (jamais caché par erreur).
+ */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: agapy-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 40%;
+    }
+  }
+}
+
+@keyframes agapy-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Apparition douce (cartel de musée de la page de connexion) */
+@keyframes agapy-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Lent zoom sur la photo active de la bannière */
+@keyframes agapy-kenburns {
+  from {
+    transform: scale(1.08);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+/* Barre de progression d'un clip de 30 s */
+@keyframes agapy-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes agapy-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(255 117 24 / 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgb(255 117 24 / 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-account {
+    animation: none;
+  }
+}
