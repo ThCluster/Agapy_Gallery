@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 
 from apps.core.pricing import CLIP_MAX_SECONDS
-from apps.core.uploads import ImageValidator, MediaValidator
+from apps.core.uploads import ImageValidator, MediaValidator, check_media_duration, rounded_seconds
 
 from . import services
 from .models import AdCampaign, Clip, LiveStream
@@ -27,6 +27,10 @@ class ClipCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("La vidéo doit être au format MP4 ou WebM.", code="video_format")
         # Poids et octets de signature (MP4 : « ftyp » ; WebM : 1A 45 DF A3) : file_too_large, file_type
         MediaValidator(CLIP_VIDEO_EXTENSIONS, CLIP_VIDEO_MAX_BYTES, label="La vidéo")(video)
+        # Durée réelle (mutagen / ffprobe) : 30 s au plus (+ 0,5 s de tolérance), code video_too_long
+        self._measured_duration = check_media_duration(
+            video, CLIP_MAX_SECONDS, code="video_too_long",
+            message=f"Le clip ne doit pas dépasser {CLIP_MAX_SECONDS} secondes.")
         return video
 
     def validate_poster(self, poster):
@@ -48,6 +52,10 @@ class ClipCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"contact_phone": serializers.ErrorDetail("Indiquez un téléphone ou un e-mail de contact.",
                                                           code="contact_required")})
+        # La durée mesurée, quand elle est connue, remplace la durée déclarée
+        measured = getattr(self, "_measured_duration", None)
+        if measured is not None:
+            d["duration_seconds"] = rounded_seconds(measured, CLIP_MAX_SECONDS)
         return d
 
 

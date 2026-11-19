@@ -12,6 +12,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
 
+from apps.core.fields import EncryptedCharField
 from apps.core.regions import Region
 
 
@@ -162,8 +163,8 @@ class PayoutRequest(models.Model):
     amount = models.DecimalField("montant", max_digits=12, decimal_places=2)
     currency = models.CharField("devise", max_length=3)
     channel = models.CharField("canal", max_length=4, choices=PayoutChannel)
-    # Coordonnées au moment de la demande (l'artiste peut les modifier ensuite)
-    destination = models.CharField("coordonnées de versement", max_length=255)
+    # Coordonnées au moment de la demande (l'artiste peut les modifier ensuite), chiffrées au repos
+    destination = EncryptedCharField("coordonnées de versement", max_length=255)
     status = models.CharField("statut", max_length=10, choices=PayoutStatus, default=PayoutStatus.PENDING, db_index=True)
     note = models.CharField("remarque", max_length=255, blank=True)
     created_at = models.DateTimeField("demandé le", auto_now_add=True)

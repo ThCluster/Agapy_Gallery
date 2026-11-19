@@ -1,4 +1,10 @@
 import hashlib
+import mimetypes
+import posixpath
+
+from django.conf import settings
+from django.http import FileResponse, HttpResponse
+from django.utils.cache import patch_vary_headers
 
 from django.core.cache import cache
 from django.db.models import F, Prefetch
@@ -6,8 +12,7 @@ from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, status
-from rest_framework.exceptions import PermissionDenied, ValidationError
-from rest_framework.pagination import PageNumberPagination
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import AllowAny, BasePermission, IsAuthenticated
 from rest_framework.response import Response
@@ -15,9 +20,11 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from apps.core.net import client_ip
+from apps.core.pagination import RelativePageNumberPagination
 from apps.payments.providers import ProviderError
 
-from . import services
+from . import access, services
+from .authentication import OptionalJWTAuthentication
 from .models import Artwork, ArtworkStatus, Discipline, Frame, Gallery
 from .serializers import (
     FrameSerializer,
@@ -45,10 +52,10 @@ ARTIST_ORDERINGS = {
 }
 
 
-class CatalogPagination(PageNumberPagination):
+class CatalogPagination(RelativePageNumberPagination):
+    """Liens next / previous relatifs (/api/v1/…), voir apps.core.pagination."""
+
     page_size = 24
-    page_size_query_param = "page_size"
-    max_page_size = 100
 
 
 class SearchThrottle(AnonRateThrottle):
@@ -155,14 +162,21 @@ class MyGalleryView(ArtistSpaceMixin, generics.RetrieveUpdateAPIView):
 # ---------------------------------------------------------------------------
 class PublicMixin:
     permission_classes = [AllowAny]
-    authentication_classes = []
+    # Reconnaît l'artiste / le staff connecté (accès à la pleine résolution) sans jamais refuser la requête
+    authentication_classes = [OptionalJWTAuthentication]
 
     def get_authenticate_header(self, request):
         return 'Bearer realm="api"'
 
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        # Le contenu (image verrouillée ou non) dépend du droit de visite et du compte connecté
+        patch_vary_headers(response, ("Authorization", access.VISIT_TOKEN_HEADER))
+        return response
+
 
 def _published_prefetch():
-    return Prefetch("artworks", queryset=Artwork.objects.visible().order_by("-recommended", "-published_at"),
+    return Prefetch("artworks", queryset=Artwork.objects.visible().select_related("artist__gallery").order_by("-recommended", "-published_at"),
                     to_attr="published_works")
 
 
@@ -230,7 +244,7 @@ class PublicArtworkListView(PublicMixin, generics.ListAPIView):
     pagination_class = CatalogPagination
 
     def get_queryset(self):
-        qs = Artwork.objects.visible().select_related("artist")
+        qs = Artwork.objects.visible().select_related("artist__gallery")
         p = self.request.query_params
         if p.get("q"):
             words = services.words_of(p["q"])
@@ -256,7 +270,7 @@ class PublicArtworkDetailView(PublicMixin, generics.RetrieveAPIView):
     lookup_field = "slug"
 
     def get_queryset(self):
-        return Artwork.objects.visible().select_related("artist")
+        return Artwork.objects.visible().select_related("artist__gallery")
 
     def retrieve(self, request, *args, **kwargs):
         artwork = self.get_object()
@@ -265,6 +279,81 @@ class PublicArtworkDetailView(PublicMixin, generics.RetrieveAPIView):
             Artwork.objects.filter(pk=artwork.pk).update(view_count=F("view_count") + 1)
             artwork.refresh_from_db(fields=["view_count"])
         return Response(self.get_serializer(artwork).data)
+
+
+class ArtworkFileView(PublicMixin, APIView):
+    """
+    Fichier pleine résolution d'une œuvre publiée, servi seulement si la galerie est gratuite, si la
+    requête porte un droit de visite valide pour cet artiste (en-tête X-Visit-Token ou ?visit_token=),
+    ou pour l'artiste propriétaire et le staff (connectés, ou URL signée ?sig= remise par l'API).
+    Sinon 403 : code visit_required (aucun droit) ou visit_token_invalid (jeton invalide, expiré, autre artiste).
+    """
+
+    kind = "image"
+
+    @extend_schema(
+        tags=["Catalogue"],
+        parameters=[
+            OpenApiParameter("visit_token", OpenApiTypes.STR,
+                             description="Droit de visite, pour les balises <img>/<video> et textures 3D "
+                                         "(sinon en-tête X-Visit-Token)"),
+            OpenApiParameter("sig", OpenApiTypes.STR, description="Signature remise par l'API à l'artiste / au staff"),
+        ],
+        responses={(200, "application/octet-stream"): OpenApiTypes.BINARY, 403: None, 404: None},
+    )
+    def get(self, request, slug):
+        artwork = self._artwork(request, slug)
+        field_file = getattr(artwork, self.kind)
+        if not field_file:
+            raise NotFound("Aucun fichier pour cette œuvre.", code="not_found")
+        if access.access_reason(request, artwork, self.kind) is None:
+            if access.visit_status(request, artwork.artist) == "invalid":
+                raise PermissionDenied("Droit de visite invalide ou expiré.", code="visit_token_invalid")
+            raise PermissionDenied("Le droit de visite de cette galerie est nécessaire.", code="visit_required")
+        return self._file_response(field_file)
+
+    def _artwork(self, request, slug):
+        artwork = Artwork.objects.select_related("artist__gallery").filter(slug=slug).first()
+        if artwork is None:
+            raise NotFound()
+        if Artwork.objects.visible().filter(pk=artwork.pk).exists():
+            return artwork
+        # Œuvre non publiée (brouillon, en modération…) : seuls l'artiste et le staff y accèdent
+        if access.is_owner_or_staff(request, artwork) or access.signature_valid(
+                request.GET.get(access.SIGNATURE_PARAM, ""), artwork.slug, self.kind):
+            return artwork
+        raise NotFound()
+
+    def _file_response(self, field_file):
+        name = field_file.name
+        content_type = mimetypes.guess_type(name)[0] or "application/octet-stream"
+        accel = getattr(settings, "MEDIA_ACCEL_REDIRECT_PREFIX", "")
+        if accel:
+            # Derrière nginx : nginx envoie le fichier depuis une location « internal », Django ne fait que vérifier
+            response = HttpResponse(content_type=content_type)
+            response["X-Accel-Redirect"] = posixpath.join(accel, name)
+        else:
+            try:
+                handle = field_file.storage.open(name, "rb")
+            except OSError:
+                raise NotFound("Fichier introuvable.", code="not_found")
+            response = FileResponse(handle, content_type=content_type)
+        response["Cache-Control"] = "private, max-age=3600"
+        response["Content-Disposition"] = "inline"
+        response["X-Content-Type-Options"] = "nosniff"
+        return response
+
+
+class ArtworkImageView(ArtworkFileView):
+    """Image pleine résolution d'une œuvre (protégée par le droit de visite)."""
+
+    kind = "image"
+
+
+class ArtworkExcerptView(ArtworkFileView):
+    """Extrait audio / vidéo d'une œuvre (protégé par le droit de visite)."""
+
+    kind = "excerpt"
 
 
 @extend_schema(tags=["Catalogue"])

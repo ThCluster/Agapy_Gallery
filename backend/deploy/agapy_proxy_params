@@ -1,0 +1,13 @@
+# Inclus par nginx.conf dans chaque bloc qui transmet à Django (/etc/nginx/agapy_proxy_params)
+proxy_http_version 1.1;
+proxy_set_header Connection "";
+proxy_set_header Host $host;
+# NUM_PROXIES=1 : Django lit la dernière adresse de X-Forwarded-For, celle que nginx ajoute ici
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+proxy_set_header X-Forwarded-Proto $scheme;
+proxy_set_header X-Real-IP $remote_addr;
+proxy_redirect off;
+proxy_read_timeout 60s;
+proxy_send_timeout 60s;
+# Corps des requêtes mis en tampon par nginx : Gunicorn n'est pas bloqué par un client lent
+proxy_request_buffering on;

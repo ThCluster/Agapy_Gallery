@@ -6,12 +6,18 @@ Contrôle des fichiers téléversés (photos, images d'œuvres, extraits, clips)
   (EXIF, GPS…) sont supprimées et l'extension du fichier enregistré suit le format réel.
 - Audio / vidéo : on vérifie les octets de signature du fichier, pas seulement son extension.
 
-Codes d'erreur stables : file_type, file_too_large, image_too_large.
+- Durée : media_duration() mesure la durée réelle (mutagen, puis ffprobe s'il est installé).
+
+Codes d'erreur stables : file_type, file_too_large, image_too_large (et le code choisi pour la durée).
 """
 import io
 import os
+import shutil
+import subprocess
+import tempfile
 import warnings
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.db import models
@@ -211,3 +217,91 @@ class MediaValidator:
     def __eq__(self, other):
         return (isinstance(other, MediaValidator) and other.extensions == self.extensions
                 and other.max_bytes == self.max_bytes)
+
+
+# ---------------------------------------------------------------------------
+# Durée réelle d'un fichier audio / vidéo
+# ---------------------------------------------------------------------------
+FFPROBE_TIMEOUT = 15  # secondes
+
+
+def _mutagen_duration(f) -> float | None:
+    try:
+        import mutagen
+    except ImportError:  # pragma: no cover
+        return None
+    try:
+        f.seek(0)
+        info = mutagen.File(f)
+    except Exception:  # fichier illisible ou format non géré (WebM…)
+        return None
+    finally:
+        f.seek(0)
+    length = getattr(getattr(info, "info", None), "length", None)
+    return float(length) if length and length > 0 else None
+
+
+def _ffprobe_duration(f) -> float | None:
+    if not getattr(settings, "MEDIA_FFPROBE_ENABLED", True):
+        return None
+    exe = shutil.which("ffprobe")
+    if not exe:
+        return None
+    tmp_path = None
+    try:
+        path = f.temporary_file_path() if hasattr(f, "temporary_file_path") else None
+        if not path:
+            # Fichier en mémoire : copie temporaire (ffprobe lit un chemin)
+            suffix = "." + (_ext(getattr(f, "name", "")) or "bin")
+            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+                f.seek(0)
+                for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                    tmp.write(chunk)
+                tmp_path = path = tmp.name
+        result = subprocess.run(
+            [exe, "-v", "error", "-protocol_whitelist", "file", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", path],
+            capture_output=True, text=True, timeout=FFPROBE_TIMEOUT, check=False,
+        )
+        if result.returncode != 0:
+            return None
+        value = float(result.stdout.strip().splitlines()[0])
+        return value if value > 0 else None
+    except (OSError, ValueError, IndexError, subprocess.SubprocessError):
+        return None
+    finally:
+        f.seek(0)
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
+
+def media_duration(f) -> float | None:
+    """
+    Durée réelle (en secondes) d'un fichier téléversé : mutagen (MP4, M4A, MP3, OGG, WAV, AAC),
+    puis ffprobe s'il est installé (WebM, MOV…). None si elle ne peut pas être mesurée.
+    Le fichier est rembobiné à la fin.
+    """
+    if not f:
+        return None
+    return _mutagen_duration(f) or _ffprobe_duration(f)
+
+
+def check_media_duration(f, max_seconds: float, *, tolerance: float = 0.5, code: str = "video_too_long",
+                         message: str | None = None) -> float | None:
+    """
+    Mesure la durée et lève ValidationError(code) si elle dépasse max_seconds (+ tolérance).
+    Renvoie la durée mesurée (None si inconnue : on garde alors la durée déclarée).
+    """
+    duration = media_duration(f)
+    if duration is not None and duration > max_seconds + tolerance:
+        raise ValidationError(
+            message or f"Le fichier dure {duration:.0f} secondes : {max_seconds:g} secondes au plus.", code=code)
+    return duration
+
+
+def rounded_seconds(duration: float, max_seconds: int) -> int:
+    """Durée mesurée → secondes entières entre 1 et max_seconds (la tolérance de 0,5 s est absorbée)."""
+    return max(1, min(int(max_seconds), round(duration)))

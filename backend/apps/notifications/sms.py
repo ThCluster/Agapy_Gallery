@@ -1,8 +1,9 @@
 """
 Envoi des SMS, sur le modèle des backends d'e-mail de Django.
 
-Le fournisseur réel (Orange SMS API, Twilio, etc.) n'est pas encore choisi : il suffira
-d'écrire une classe qui hérite de BaseSmsBackend et de la déclarer dans SMS_BACKEND.
+Le fournisseur réel n'est pas encore choisi : des classes prêtes à l'emploi (Orange SMS API,
+Twilio, agrégateur HTTP) sont dans sms_providers.py ; il suffit de déclarer l'une d'elles dans
+SMS_BACKEND (ou une nouvelle classe héritant de BaseSmsBackend).
 """
 import logging
 

@@ -1,0 +1,17 @@
+# Crontab de l'utilisateur « agapy » (crontab -e). Heures : fuseau du serveur (UTC = Africa/Abidjan).
+# Chaque tâche écrit dans /var/log/agapy/cron.log ; flock évite deux exécutions simultanées.
+SHELL=/bin/sh
+APP=/srv/agapy-gallery/backend
+PY=/srv/agapy-gallery/backend/.venv/bin/python
+LOG=/var/log/agapy/cron.log
+
+# Chaque minute : file des clips (fin des 24 h, entrée des clips en attente)
+* * * * *   cd $APP && flock -n /tmp/agapy-clips.lock $PY manage.py refresh_clip_queue >> $LOG 2>&1
+# Chaque minute : SMS et e-mails en attente (si NOTIFICATIONS_ASYNC=True ; sans effet sinon)
+* * * * *   cd $APP && flock -n /tmp/agapy-notif.lock $PY manage.py send_pending_notifications >> $LOG 2>&1
+# Chaque jour à 02:00 : mise en veille des abonnements échus, rappels J-30 et J-7
+0 2 * * *   cd $APP && flock -n /tmp/agapy-subs.lock $PY manage.py expire_subscriptions >> $LOG 2>&1
+# Le 1er janvier, avril, juillet et octobre à 06:00 : bilan trimestriel des artistes
+0 6 1 1,4,7,10 *   cd $APP && flock -n /tmp/agapy-bilan.lock $PY manage.py send_quarterly_statements >> $LOG 2>&1
+# Chaque nuit à 03:00 : sauvegarde MySQL (voir deploy/backup_mysql.sh)
+0 3 * * *   /srv/agapy-gallery/backend/deploy/backup_mysql.sh >> $LOG 2>&1

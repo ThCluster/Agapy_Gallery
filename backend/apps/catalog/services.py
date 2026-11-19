@@ -230,6 +230,13 @@ def _notify(artist: ArtistProfile, subject: str, message: str) -> None:
 
 
 def approve_artwork(artwork: Artwork) -> None:
+    """Valide et publie une œuvre en attente de validation (paiement reçu ou publication gratuite)."""
+    if artwork.status != ArtworkStatus.PENDING_REVIEW:
+        raise ValidationError(
+            {"detail": "Seule une œuvre en attente de validation peut être publiée "
+                       f"(statut actuel : {artwork.get_status_display()})."},
+            code="not_pending_review",
+        )
     now = timezone.now()
     artwork.status = ArtworkStatus.PUBLISHED
     artwork.moderation_reason = ""
@@ -289,7 +296,7 @@ def search(q: str = "", artist: str = "", title: str = "", limit: int = 24) -> d
     Renvoie {"artists", "artworks", "found", "code", "detail"}.
     """
     artists = public_artists()
-    artworks = Artwork.objects.visible().select_related("artist")
+    artworks = Artwork.objects.visible().select_related("artist__gallery")
     code = detail = ""
 
     if q:

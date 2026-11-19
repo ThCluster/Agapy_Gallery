@@ -10,10 +10,12 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
+from rest_framework.settings import api_settings
 
 from apps.core.phone import format_international, normalize_phone, phone_region
 from apps.core.uploads import ImageValidator
 
+from . import services
 from .models import ArtistProfile, ArtistStatus, Civility, MomoOperator, User
 from .validators import normalize_iban, validate_gps, validate_iban
 
@@ -96,8 +98,10 @@ class ArtistProfileSerializer(serializers.ModelSerializer):
             "last_name", "first_names", "birth_date", "birth_place", "artist_name",
             "org_name", "founded_date", "founded_place",
             "country", "city", "village", "gps", "photo", "bio", "website", "facebook", "instagram",
+            "twitter", "tiktok",
             "payout_momo", "momo_operator", "momo_number", "momo_number_display",
             "payout_iban", "iban", "account_holder", "bank_name",
+            "assisted_by_name", "assisted_by_phone",
             "is_red_listed", "red_listed_until", "activated_at", "created_at",
         ]
         read_only_fields = fields
@@ -109,11 +113,21 @@ class ArtistProfileSerializer(serializers.ModelSerializer):
 class MeSerializer(serializers.ModelSerializer):
     phone_display = serializers.CharField(read_only=True)
     artist = ArtistProfileSerializer(read_only=True, allow_null=True)
+    # Compte visiteur (client) : profil apps.visitors, None pour un artiste. Un compte est l'un ou l'autre.
+    visitor = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "phone", "phone_display", "email", "is_staff", "last_login", "artist"]
+        fields = ["id", "phone", "phone_display", "email", "is_staff", "last_login", "artist", "visitor"]
         read_only_fields = fields
+
+    def get_visitor(self, instance) -> dict | None:
+        profile = getattr(instance, "visitor", None)
+        if profile is None:
+            return None
+        from apps.visitors.serializers import VisitorProfileSerializer
+
+        return VisitorProfileSerializer(profile).data
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -150,6 +164,8 @@ class SignupSerializer(serializers.Serializer):
     website = serializers.URLField(required=False, allow_blank=True)
     facebook = serializers.URLField(required=False, allow_blank=True)
     instagram = serializers.URLField(required=False, allow_blank=True)
+    twitter = serializers.URLField(required=False, allow_blank=True)
+    tiktok = serializers.URLField(required=False, allow_blank=True)
     # Compte de récupération des fonds
     payout_momo = serializers.BooleanField(default=False)
     momo_operator = serializers.ChoiceField(choices=MomoOperator.choices, required=False, allow_blank=True)
@@ -158,6 +174,9 @@ class SignupSerializer(serializers.Serializer):
     iban = serializers.CharField(max_length=50, required=False, allow_blank=True)
     account_holder = serializers.CharField(max_length=150, required=False, allow_blank=True)
     bank_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    # Personne de confiance qui a aidé à remplir l'inscription (artistes qui ne savent pas lire)
+    assisted_by_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    assisted_by_phone = serializers.CharField(max_length=30, required=False, allow_blank=True)
     accept_terms = serializers.BooleanField()
 
     def validate_photo(self, photo):
@@ -211,10 +230,19 @@ class SignupSerializer(serializers.Serializer):
                 except DjangoValidationError:
                     need("iban", False, "IBAN invalide.", "iban_invalid")
 
+        if d.get("assisted_by_phone"):
+            try:
+                d["assisted_by_phone"] = normalize_phone(d["assisted_by_phone"], d["phone_country"])
+            except DjangoValidationError:
+                need("assisted_by_phone", False, "Numéro de téléphone invalide.", "phone_invalid")
+
         need("accept_terms", d.get("accept_terms"), "Vous devez accepter les conditions générales.", "terms_required")
 
         if "phone" not in errors:
             existing = User.objects.filter(phone=d["phone"]).select_related("artist").first()
+            if (existing is not None and getattr(existing, "artist", None) is not None
+                    and existing.artist.status == ArtistStatus.EXCLUDED):
+                raise self._banned()
             if existing is not None:
                 pending = getattr(existing, "artist", None) is not None and existing.artist.status == ArtistStatus.PENDING_PAYMENT
                 need("phone", pending, "Ce numéro est déjà associé à un compte AGAPY-GALLERY.", "phone_taken")
@@ -222,13 +250,34 @@ class SignupSerializer(serializers.Serializer):
 
         if errors:
             raise serializers.ValidationError(errors)
+
+        # Contournement des sanctions (cahier des charges p. 13), sur les valeurs normalisées
+        existing = d.get("_existing")
+        matches = services.sanction_matches(
+            email=d["email"], phone=d["phone"],
+            iban=d.get("iban", "") if d.get("payout_iban") else "",
+            momo_number=d.get("momo_number", "") if d.get("payout_momo") else "",
+            exclude_pk=existing.artist.pk if existing is not None else None,
+        )
+        if matches["excluded"]:
+            services.logger.warning("Réinscription refusée (compte exclu) : %s",
+                                    services.describe_matches(matches["excluded"]))
+            raise self._banned()
+        d["_flagged_reason"] = services.flag_reason_for(matches)
         return d
+
+    @staticmethod
+    def _banned():
+        # Message neutre : ne dit ni quel compte, ni quelle coordonnée a été reconnue
+        return serializers.ValidationError(
+            {api_settings.NON_FIELD_ERRORS_KEY: [serializers.ErrorDetail(services.BANNED_MESSAGE, code="account_banned")]}
+        )
 
     PROFILE_FIELDS = [
         "civility", "last_name", "first_names", "birth_date", "birth_place", "artist_name",
         "org_name", "founded_date", "founded_place", "country", "city", "village", "gps", "photo",
-        "website", "facebook", "instagram", "payout_momo", "momo_operator", "momo_number",
-        "payout_iban", "iban", "account_holder", "bank_name",
+        "website", "facebook", "instagram", "twitter", "tiktok", "payout_momo", "momo_operator", "momo_number",
+        "payout_iban", "iban", "account_holder", "bank_name", "assisted_by_name", "assisted_by_phone",
     ]
 
     @transaction.atomic
@@ -256,7 +305,10 @@ class SignupSerializer(serializers.Serializer):
             setattr(profile, field, value)
         profile.status = ArtistStatus.PENDING_PAYMENT
         profile.accepted_terms_at = timezone.now()
+        profile.flagged_reason = d.get("_flagged_reason", "")
         profile.save()
+        if profile.flagged_reason:
+            services.logger.warning("Inscription %s signalée : %s", profile.slug, profile.flagged_reason)
         return profile
 
 
@@ -278,6 +330,7 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
             "email", "last_name", "first_names", "birth_date", "birth_place", "artist_name",
             "org_name", "founded_date", "founded_place",
             "country", "city", "village", "gps", "photo", "bio", "website", "facebook", "instagram",
+            "twitter", "tiktok",
         ]
         read_only_fields = ["country"]
         extra_kwargs = {"photo": {"required": False}}
@@ -316,10 +369,14 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update(self, profile, attrs):
         user_data = attrs.pop("user", {})
+        email_changed = "email" in user_data and user_data["email"] != profile.user.email
         if "email" in user_data:
             profile.user.email = user_data["email"]
             profile.user.save(update_fields=["email"])
-        return super().update(profile, attrs)
+        profile = super().update(profile, attrs)
+        if email_changed:
+            services.flag_if_sanction_evasion(profile)
+        return profile
 
 
 class PayoutSerializer(serializers.ModelSerializer):
@@ -373,3 +430,10 @@ class PayoutSerializer(serializers.ModelSerializer):
         if errors:
             raise serializers.ValidationError(errors)
         return attrs
+
+    @transaction.atomic
+    def update(self, profile, attrs):
+        profile = super().update(profile, attrs)
+        # Coordonnées d'un compte exclu ou sur liste rouge : signalé à l'équipe, sans bloquer
+        services.flag_if_sanction_evasion(profile)
+        return profile

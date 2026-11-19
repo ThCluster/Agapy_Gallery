@@ -241,6 +241,7 @@ def expire_and_remind(now=None) -> dict:
 
 
 # --- Compte d'Avoir ----------------------------------------------------------
+# Un Compte d'Avoir appartient à un artiste (Wallet.artist) ou à un visiteur inscrit (Wallet.user).
 
 def ensure_wallet(artist: ArtistProfile) -> Wallet:
     wallet, _ = Wallet.objects.get_or_create(artist=artist,
@@ -248,12 +249,38 @@ def ensure_wallet(artist: ArtistProfile) -> Wallet:
     return wallet
 
 
-def set_wallet_active(artist: ArtistProfile, active: bool) -> Wallet:
-    wallet = ensure_wallet(artist)
+def ensure_visitor_wallet(user) -> Wallet:
+    """Compte d'Avoir d'un visiteur inscrit (devise de la zone de son pays)."""
+    wallet, _ = Wallet.objects.get_or_create(user=user,
+                                             defaults={"currency": CURRENCY_OF_REGION[user.visitor.region]})
+    return wallet
+
+
+def wallet_for_user(user) -> Wallet | None:
+    """Compte d'Avoir du compte connecté : celui de son profil artiste ou de son profil visiteur."""
+    if user is None or not user.is_authenticated:
+        return None
+    artist = getattr(user, "artist", None)
+    if artist is not None:
+        return ensure_wallet(artist)
+    if getattr(user, "visitor", None) is not None:
+        return ensure_visitor_wallet(user)
+    return None
+
+
+def owner_region(wallet: Wallet) -> str:
+    return wallet.artist.region if wallet.artist_id else wallet.user.visitor.region
+
+
+def set_active(wallet: Wallet, active: bool) -> Wallet:
     if wallet.is_active != active:
         wallet.is_active = active
         wallet.save(update_fields=["is_active", "updated_at"])
     return wallet
+
+
+def set_wallet_active(artist: ArtistProfile, active: bool) -> Wallet:
+    return set_active(ensure_wallet(artist), active)
 
 
 def clean_topup_amount(raw, currency: str) -> Decimal:
@@ -271,19 +298,25 @@ def clean_topup_amount(raw, currency: str) -> Decimal:
     return amount
 
 
-def request_topup(artist: ArtistProfile, user, amount, method: str):
-    """Recharge (montant libre, sans TVA) par carte ou mobile money. Renvoie (payment, action)."""
+def request_wallet_topup(wallet: Wallet, user, amount, method: str):
+    """
+    Recharge (montant libre, sans TVA) par carte ou mobile money. Renvoie (payment, action).
+    Artiste : Payment.artist = l'artiste. Visiteur : Payment.artist vide, payer_user = le visiteur.
+    """
     if method not in TOPUP_METHODS:
         raise SubscriptionError("invalid_method", "Recharge possible par carte ou mobile money uniquement.")
-    wallet = ensure_wallet(artist)
     if not wallet.is_active:
         raise SubscriptionError("wallet_inactive", "Activez d'abord votre Compte d'Avoir.")
     amount = clean_topup_amount(amount, wallet.currency)
     payment = payments.create_payment(
         purpose="wallet_topup", method=method, quote=donation_quote(amount, wallet.currency),
-        region=artist.region, artist=artist, payer_user=user,
+        region=owner_region(wallet), artist=wallet.artist, payer_user=user,
     )
     return payment, payments.start_payment(payment)
+
+
+def request_topup(artist: ArtistProfile, user, amount, method: str):
+    return request_wallet_topup(ensure_wallet(artist), user, amount, method)
 
 
 def _add_entry(wallet: Wallet, amount: Decimal, label: str, payment=None) -> WalletEntry:
@@ -294,35 +327,78 @@ def _add_entry(wallet: Wallet, amount: Decimal, label: str, payment=None) -> Wal
                                       label=label[:200], payment=payment)
 
 
+def _topup_wallet(payment) -> Wallet | None:
+    if payment.artist_id:
+        return ensure_wallet(payment.artist)
+    user = payment.payer_user
+    if user is not None and getattr(user, "visitor", None) is not None:
+        return ensure_visitor_wallet(user)
+    return None
+
+
 @transaction.atomic
 def credit_topup(payment) -> WalletEntry | None:
-    """Crédite une recharge confirmée. Idempotent."""
+    """Crédite une recharge confirmée (artiste ou visiteur). Idempotent."""
     if WalletEntry.objects.filter(payment=payment).exists():
         return None
-    wallet = Wallet.objects.select_for_update().get(pk=ensure_wallet(payment.artist).pk)
+    wallet = _topup_wallet(payment)
+    if wallet is None:
+        logger.error("Recharge %s sans Compte d'Avoir associé", payment.reference)
+        return None
+    wallet = Wallet.objects.select_for_update().get(pk=wallet.pk)
     if wallet.currency != payment.currency:
         # Ne devrait pas arriver : la recharge est toujours créée dans la devise du compte
         raise ProviderError("wallet_currency", "Devise différente de celle du Compte d'Avoir.")
     return _add_entry(wallet, payment.amount_ttc, "Recharge du Compte d'Avoir", payment)
 
 
-def wallet_owner(payment) -> ArtistProfile | None:
+# Paiements où Payment.artist est le BÉNÉFICIAIRE (et non le payeur) : seul le compte connecté peut payer
+RECIPIENT_PURPOSES = ("visit", "donation")
+
+
+def payer_wallet_lookup(payment) -> dict | None:
+    """
+    Filtre du Compte d'Avoir à débiter : celui du compte qui paie (artiste ou visiteur).
+    Pour une visite ou un don, jamais celui de l'artiste bénéficiaire.
+    """
     user = payment.payer_user
-    artist = getattr(user, "artist", None) if user is not None else None
-    return artist or payment.artist
+    if user is not None:
+        artist = getattr(user, "artist", None)
+        if artist is not None:
+            return {"artist": artist}
+        if getattr(user, "visitor", None) is not None:
+            return {"user": user}
+    if payment.purpose in RECIPIENT_PURPOSES:
+        return None
+    return {"artist_id": payment.artist_id} if payment.artist_id else None
+
+
+def wallet_owner(payment) -> ArtistProfile | None:
+    """Artiste payeur (compatibilité) ; None si le payeur est un visiteur ou inconnu."""
+    lookup = payer_wallet_lookup(payment)
+    if not lookup or "user" in lookup:
+        return None
+    return lookup.get("artist") or ArtistProfile.objects.get(pk=lookup["artist_id"])
+
+
+def _wallet_label(payment) -> str:
+    label = payment.get_purpose_display()
+    if payment.purpose in RECIPIENT_PURPOSES and payment.artist_id:
+        label = f"{label} — {payment.artist.display_name}"
+    return label
 
 
 def pay_with_wallet(payment) -> dict:
     """
-    Règle un paiement avec le Compte d'Avoir : débit atomique puis confirmation du paiement
-    (dans la même transaction : si une action du module échoue, le débit est annulé).
+    Règle un paiement avec le Compte d'Avoir du payeur (artiste ou visiteur) : débit atomique puis
+    confirmation du paiement (même transaction : si une action du module échoue, le débit est annulé).
     """
     from apps.payments.models import Payment, PaymentStatus
 
     if payment.purpose == "wallet_topup":
         raise ProviderError("wallet_not_allowed", "Une recharge ne peut pas être payée avec le Compte d'Avoir.")
-    artist = wallet_owner(payment)
-    if artist is None:
+    lookup = payer_wallet_lookup(payment)
+    if lookup is None:
         raise ProviderError("wallet_unavailable", "Aucun Compte d'Avoir associé à ce paiement.")
 
     with transaction.atomic():
@@ -331,13 +407,13 @@ def pay_with_wallet(payment) -> dict:
             return {"status": "succeeded"}
         if payment.status != PaymentStatus.PENDING:
             raise ProviderError("payment_closed", "Ce paiement n'est plus en attente.")
-        wallet = Wallet.objects.select_for_update().filter(artist=artist).first()
+        wallet = Wallet.objects.select_for_update().filter(**lookup).first()
         if wallet is None or not wallet.is_active:
             raise ProviderError("wallet_inactive", "Votre Compte d'Avoir n'est pas activé.")
         if wallet.currency != payment.currency:
             raise ProviderError("wallet_currency", "La devise du paiement ne correspond pas à celle du Compte d'Avoir.")
         if wallet.balance < payment.amount_ttc:
             raise ProviderError("wallet_insufficient", "Solde du Compte d'Avoir insuffisant.")
-        _add_entry(wallet, -payment.amount_ttc, payment.get_purpose_display(), payment)
+        _add_entry(wallet, -payment.amount_ttc, _wallet_label(payment), payment)
         payments.confirm_payment(payment, provider_ref=f"wallet-{wallet.pk}")
     return {"status": "succeeded"}

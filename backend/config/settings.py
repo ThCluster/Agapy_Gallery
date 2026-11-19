@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     "apps.site_content",
     "apps.dashboards",
     "apps.forum",
+    "apps.visitors",
 ]
 
 MIDDLEWARE = [
@@ -98,7 +99,9 @@ if "mysql" in DATABASES["default"]["ENGINE"]:
         }
     )
     DATABASES["default"]["TEST"] = {"CHARSET": "utf8mb4", "COLLATION": "utf8mb4_unicode_ci"}
-    DATABASES["default"]["CONN_MAX_AGE"] = 60
+# Connexions persistantes (secondes) ; vérifiées avant réutilisation
+DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)
+DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 # Vérifications rapides sans MySQL : DATABASE_URL=sqlite:///chemin/vers/fichier.sqlite3
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -224,16 +227,39 @@ CORS_URLS_REGEX = r"^/api/.*$"
 CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 
 # ---------------------------------------------------------------------------
-# Cache (compteur d'échecs de connexion, limitation de débit).
-# En production avec plusieurs processus : utiliser Redis.
+# Cache (compteur d'échecs de connexion, limitation de débit, jeton du fournisseur SMS).
+# En production avec plusieurs processus Gunicorn : Redis, sinon chaque processus a ses propres
+# compteurs et les limites sont contournables. Ex. CACHE_URL=rediscache://127.0.0.1:6379/1
+# (backend django.core.cache.backends.redis.RedisCache, paquet « redis »).
 # ---------------------------------------------------------------------------
 CACHES = {"default": env.cache("CACHE_URL", default="locmemcache://agapy")}
+CACHES["default"].setdefault("KEY_PREFIX", "agapy")
+
+# Chiffrement des champs sensibles (apps.core.fields) et des notifications en attente.
+# Générer : python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+FIELD_ENCRYPTION_KEY = env("FIELD_ENCRYPTION_KEY", default=None)
 
 # ---------------------------------------------------------------------------
 # Notifications
 # ---------------------------------------------------------------------------
 SMS_BACKEND = env("SMS_BACKEND", default="apps.notifications.sms.ConsoleSmsBackend")
 SMS_SENDER_NAME = env("SMS_SENDER_NAME", default="AGAPY")
+SMS_TIMEOUT = env.int("SMS_TIMEOUT", default=10)
+# Fournisseurs prêts à l'emploi : apps/notifications/sms_providers.py
+SMS_ORANGE_CLIENT_ID = env("SMS_ORANGE_CLIENT_ID", default=None)
+SMS_ORANGE_CLIENT_SECRET = env("SMS_ORANGE_CLIENT_SECRET", default=None)
+SMS_ORANGE_SENDER = env("SMS_ORANGE_SENDER", default=None)
+SMS_ORANGE_SENDER_NAME = env("SMS_ORANGE_SENDER_NAME", default=None)
+SMS_TWILIO_SID = env("SMS_TWILIO_SID", default=None)
+SMS_TWILIO_TOKEN = env("SMS_TWILIO_TOKEN", default=None)
+SMS_TWILIO_FROM = env("SMS_TWILIO_FROM", default=None)
+SMS_HTTP_URL = env("SMS_HTTP_URL", default=None)
+SMS_HTTP_HEADERS = env("SMS_HTTP_HEADERS", default=None)  # JSON
+SMS_HTTP_TEMPLATE = env("SMS_HTTP_TEMPLATE", default=None)  # JSON avec {to}, {message}, {sender}
+SMS_HTTP_SENDER = env("SMS_HTTP_SENDER", default=None)
+# True : SMS et e-mails mis en file (chiffrés) et envoyés par « manage.py send_pending_notifications »
+# lancé chaque minute (cron). False : envoi pendant la requête.
+NOTIFICATIONS_ASYNC = env.bool("NOTIFICATIONS_ASYNC", default=False)
 
 if "EMAIL_URL" in env.ENVIRON:
     vars().update(env.email("EMAIL_URL"))
@@ -279,24 +305,69 @@ MEDIA_ROOT = BASE_DIR / "media"
 # Taille maximale de la photo de profil (5 Mo, comme le frontend)
 PROFILE_PHOTO_MAX_BYTES = 5 * 1024 * 1024
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
+# Durée réelle des vidéos et extraits : mutagen, puis ffprobe s'il est installé (False pour le désactiver)
+MEDIA_FFPROBE_ENABLED = env.bool("MEDIA_FFPROBE_ENABLED", default=True)
 
 # ---------------------------------------------------------------------------
-# Sécurité en production
+# Sécurité (en-têtes valables partout, HTTPS et cookies sécurisés hors DEBUG)
 # ---------------------------------------------------------------------------
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
+X_FRAME_OPTIONS = "DENY"
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_AGE = 60 * 60 * 8  # session de l'administration : 8 heures
+CSRF_COOKIE_SAMESITE = "Lax"
+# Le frontend n'utilise pas le jeton CSRF en JavaScript (API en JWT) : cookie inaccessible au script
+CSRF_COOKIE_HTTPONLY = True
+
 if not DEBUG:
+    # Derrière nginx (qui termine le TLS et transmet X-Forwarded-Proto)
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-    SECURE_SSL_REDIRECT = True
-    SECURE_HSTS_SECONDS = 60 * 60 * 24 * 365
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=True)
+    # /healthz reste accessible en HTTP pour la sonde locale (Docker, superviseur)
+    SECURE_REDIRECT_EXEMPT = [r"^healthz$"]
+    SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=60 * 60 * 24 * 365)
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", default=True)
+    # À n'activer qu'après inscription volontaire sur https://hstspreload.org (difficile à annuler)
+    SECURE_HSTS_PRELOAD = env.bool("SECURE_HSTS_PRELOAD", default=False)
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SESSION_COOKIE_NAME = "__Secure-agapy_session"
+    CSRF_COOKIE_NAME = "__Secure-agapy_csrf"
+
+# ---------------------------------------------------------------------------
+# Journalisation : texte lisible en DEBUG ; hors DEBUG, une ligne JSON par événement sur la console
+# (récupérée par systemd/journald ou Docker) et, si LOG_FILE est défini, dans un fichier tournant.
+# ---------------------------------------------------------------------------
+LOG_LEVEL = env("LOG_LEVEL", default="DEBUG" if DEBUG else "INFO")
+LOG_FILE = env("LOG_FILE", default=None)
+_log_handlers = ["console"] + (["file"] if LOG_FILE else [])
 
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "formatters": {
+        "text": {"format": "%(asctime)s %(levelname)s %(name)s : %(message)s"},
+        "json": {"()": "config.jsonlog.JsonFormatter"},
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "text" if DEBUG else "json"},
+        **({"file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": LOG_FILE,
+            "maxBytes": 10 * 1024 * 1024,
+            "backupCount": 5,
+            "encoding": "utf-8",
+            "formatter": "json",
+        }} if LOG_FILE else {}),
+    },
+    "root": {"handlers": _log_handlers, "level": "WARNING"},
     "loggers": {
-        "agapy": {"handlers": ["console"], "level": "DEBUG" if DEBUG else "INFO"},
+        "agapy": {"handlers": _log_handlers, "level": LOG_LEVEL, "propagate": False},
     },
 }
+if not DEBUG:
+    # Erreurs 5xx, requêtes refusées (Host invalide…) ; en DEBUG, Django garde son affichage habituel
+    LOGGING["loggers"]["django"] = {"handlers": _log_handlers, "level": "WARNING", "propagate": False}

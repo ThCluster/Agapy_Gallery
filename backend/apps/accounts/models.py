@@ -11,10 +11,12 @@ from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
 
+from apps.core.fields import EncryptedCharField
 from apps.core.phone import format_international
 from apps.core.regions import region_of
 from apps.core.uploads import SafeImageField
 
+from . import fingerprints
 from .managers import UserManager
 from .validators import validate_gps
 
@@ -109,18 +111,34 @@ class ArtistProfile(models.Model):
     website = models.URLField("site web", blank=True)
     facebook = models.URLField(blank=True)
     instagram = models.URLField(blank=True)
+    twitter = models.URLField("X (Twitter)", blank=True)
+    tiktok = models.URLField("TikTok", blank=True)
 
     # Compte de récupération des fonds : mobile money et/ou IBAN
     payout_momo = models.BooleanField("versement mobile money", default=False)
     momo_operator = models.CharField("opérateur", max_length=30, choices=MomoOperator, blank=True)
-    momo_number = models.CharField("numéro mobile money", max_length=20, blank=True)
+    # Chiffrés au repos (apps.core.fields) : ne pas filtrer dessus, utiliser les empreintes
+    momo_number = EncryptedCharField("numéro mobile money", max_length=20, blank=True)
     payout_iban = models.BooleanField("versement bancaire", default=False)
-    iban = models.CharField("IBAN", max_length=34, blank=True)
-    account_holder = models.CharField("titulaire du compte", max_length=150, blank=True)
+    iban = EncryptedCharField("IBAN", max_length=34, blank=True)
+    account_holder = EncryptedCharField("titulaire du compte", max_length=150, blank=True)
     bank_name = models.CharField("banque", max_length=150, blank=True)
 
     # Modération : liste rouge pendant au moins 3 mois après une œuvre inappropriée
     red_listed_until = models.DateField("sur liste rouge jusqu'au", null=True, blank=True)
+    # Contournement des sanctions : coordonnées communes avec un compte sur liste rouge (à vérifier)
+    flagged_reason = models.CharField("à vérifier", max_length=255, blank=True,
+                                      help_text="Rempli automatiquement ; vider une fois le compte vérifié.")
+
+    # Empreintes HMAC des coordonnées (apps.accounts.fingerprints), recalculées à chaque enregistrement
+    email_fingerprint = models.CharField(max_length=64, blank=True, db_index=True, editable=False)
+    iban_fingerprint = models.CharField(max_length=64, blank=True, db_index=True, editable=False)
+    momo_fingerprint = models.CharField(max_length=64, blank=True, db_index=True, editable=False)
+    phone_fingerprint = models.CharField(max_length=64, blank=True, db_index=True, editable=False)
+
+    # Inscription faite avec l'aide d'une personne de confiance (artistes qui ne savent pas lire, p. 18)
+    assisted_by_name = models.CharField("assisté par", max_length=150, blank=True)
+    assisted_by_phone = models.CharField("téléphone de la personne qui assiste", max_length=20, blank=True)
 
     accepted_terms_at = models.DateTimeField("CGU acceptées le", null=True, blank=True)
     activated_at = models.DateTimeField("activé le", null=True, blank=True)
@@ -153,9 +171,23 @@ class ArtistProfile(models.Model):
     def is_red_listed(self) -> bool:
         return bool(self.red_listed_until and self.red_listed_until >= timezone.localdate())
 
+    FINGERPRINT_FIELDS = ("email_fingerprint", "iban_fingerprint", "momo_fingerprint", "phone_fingerprint")
+
+    def refresh_fingerprints(self) -> None:
+        user = self.user if self.user_id else None
+        for field, value in fingerprints.compute(
+            email=user.email if user else "", iban=self.iban, momo_number=self.momo_number,
+            phone=user.phone if user else "",
+        ).items():
+            setattr(self, field, value)
+
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = self._unique_slug()
+        self.refresh_fingerprints()
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            kwargs["update_fields"] = set(update_fields) | set(self.FINGERPRINT_FIELDS)
         super().save(*args, **kwargs)
 
     def _unique_slug(self) -> str:

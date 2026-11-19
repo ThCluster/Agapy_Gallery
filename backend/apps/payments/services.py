@@ -30,7 +30,7 @@ from django.utils import timezone
 from django.utils.module_loading import import_string
 
 from apps.core.pricing import (
-    DONATION_SPLIT, VISIT_SPLIT, Currency, Quote, donation_quote, quote, round_money, split,
+    CURRENCY_OF_REGION, DONATION_SPLIT, VISIT_SPLIT, Currency, Quote, donation_quote, quote, round_money, split,
 )
 
 from .models import (
@@ -104,7 +104,8 @@ def fail_payment(payment: Payment, reason: str = "", status: str = PaymentStatus
 # Durée d'un droit de visite payé (réglable avec settings.VISIT_PASS_LIFETIME)
 VISIT_PASS_LIFETIME = timedelta(hours=24)
 
-# Moyens proposés aux visiteurs et aux nouveaux inscrits (le Compte d'Avoir exige un compte actif)
+# Moyens proposés aux visiteurs anonymes et aux nouveaux inscrits. Le Compte d'Avoir exige un compte
+# connecté (visiteur inscrit ou artiste) : voir _visitor_payment_context (visites et dons).
 PUBLIC_METHODS = ("card", "momo")
 
 # Montants de don acceptés, par devise
@@ -155,6 +156,27 @@ def _check_public_method(method: str) -> None:
         raise ProviderError("method_unavailable", "Ce moyen de paiement n'est pas disponible ici.")
 
 
+def _visitor_payment_context(method: str, region: str, payer_user) -> tuple[str, object]:
+    """
+    Visites et dons. Carte / mobile money : pour tous. Compte d'Avoir : seulement pour un compte connecté
+    (visiteur ou artiste) dont le Compte d'Avoir est activé ; la zone tarifaire est alors celle du compte
+    (devise du Compte d'Avoir), quelle que soit la zone envoyée. Renvoie (region, payer_user).
+    """
+    user = payer_user if payer_user is not None and payer_user.is_authenticated else None
+    if method != "wallet":
+        return region, user
+    if user is None:
+        raise ProviderError("method_unavailable", "Connectez-vous pour payer avec votre Compte d'Avoir.")
+    from apps.subscriptions.services import owner_region, wallet_for_user
+
+    wallet = wallet_for_user(user)
+    if wallet is None:
+        raise ProviderError("method_unavailable", "Aucun Compte d'Avoir associé à ce compte.")
+    if not wallet.is_active:
+        raise ProviderError("wallet_inactive", "Votre Compte d'Avoir n'est pas activé.")
+    return owner_region(wallet), user
+
+
 # ---------------------------------------------------------------------------
 # Ouverture de compte
 # ---------------------------------------------------------------------------
@@ -173,10 +195,10 @@ def create_signup_payment(artist, method: str) -> Payment:
 # ---------------------------------------------------------------------------
 # Visites
 # ---------------------------------------------------------------------------
-def create_visit_payment(artist, method: str, region: str, payer: dict) -> Payment:
-    _check_public_method(method)
+def create_visit_payment(artist, method: str, region: str, payer: dict, payer_user=None) -> Payment:
+    region, payer_user = _visitor_payment_context(method, region, payer_user)
     return create_payment(purpose=Purpose.VISIT, method=method, quote=quote("visit", region), region=region,
-                          artist=artist, **payer)
+                          artist=artist, payer_user=payer_user, **payer)
 
 
 def issue_visit_pass(payment: Payment) -> VisitPass:
@@ -220,15 +242,20 @@ def log_free_visit(artist, visitor_key: str = "") -> None:
 # Dons
 # ---------------------------------------------------------------------------
 def create_donation_payment(artist, amount: Decimal, currency: str, region: str, method: str, payer: dict,
-                            message: str = "") -> Payment:
-    _check_public_method(method)
+                            message: str = "", payer_user=None) -> Payment:
+    if payer_user is not None and getattr(payer_user, "artist", None) == artist:
+        raise PaymentError("self_donation", "Vous ne pouvez pas vous faire un don.")
+    region, payer_user = _visitor_payment_context(method, region, payer_user)
+    if method == "wallet":  # devise du Compte d'Avoir
+        currency = CURRENCY_OF_REGION[region]
     low, high = DONATION_LIMITS[currency]
     if settings.PAYMENT_SIMULATION_ENABLED:
         high = min(high, SIMULATED_DONATION_MAX[currency])
     if amount != round_money(amount, currency) or not (low <= amount <= high):
         raise PaymentError("invalid_amount", f"Le don doit être compris entre {low} et {high} {currency}.")
     return create_payment(purpose=Purpose.DONATION, method=method, quote=donation_quote(amount, currency),
-                          region=region, artist=artist, metadata={"message": message} if message else None, **payer)
+                          region=region, artist=artist, payer_user=payer_user,
+                          metadata={"message": message} if message else None, **payer)
 
 
 # ---------------------------------------------------------------------------
