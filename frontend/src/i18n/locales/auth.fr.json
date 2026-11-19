@@ -6,7 +6,9 @@
     "signup": {
       "checking": "Vérification de votre paiement…",
       "paymentFailed": "Le paiement des frais d'ouverture n'a pas abouti. Votre inscription est enregistrée : vous pouvez relancer le paiement.",
-      "retryPayment": "Relancer le paiement"
+      "retryPayment": "Relancer le paiement",
+      "credentials": "Votre mot de passe vous a été envoyé par SMS au numéro de connexion. Vous pourrez le changer à tout moment.",
+      "emailHint": "Adresse de contact. Votre mot de passe vous sera envoyé par SMS uniquement."
     },
     "dashboard": {
       "loading": "Chargement de votre espace",
@@ -16,7 +18,7 @@
       },
       "pending": {
         "title": "Compte en attente d'activation",
-        "text": "Votre espace s'ouvrira dès le paiement des frais d'ouverture. Vos identifiants vous seront alors envoyés par SMS et par e-mail.",
+        "text": "Votre espace s'ouvrira dès le paiement des frais d'ouverture. Votre mot de passe vous sera alors envoyé par SMS.",
         "action": "Finaliser mon inscription"
       },
       "excluded": {
@@ -50,6 +52,29 @@
       },
       "back": "Revenir sur le site",
       "home": "Retour à l'accueil"
+    },
+    "title": {
+      "login": "Connexion",
+      "signup": "Inscription"
+    },
+    "social": {
+      "facebook": "Facebook",
+      "instagram": "Instagram",
+      "x": "X (Twitter)",
+      "tiktok": "TikTok",
+      "youtube": "YouTube",
+      "linkedin": "LinkedIn",
+      "website": "Site web",
+      "other": "Lien"
+    },
+    "payout": {
+      "currentPassword": "Mot de passe actuel",
+      "currentPasswordHint": "Pour protéger vos versements, confirmez avec votre mot de passe actuel.",
+      "countryReadOnly": "Le pays ne peut pas être modifié. Contactez-nous si nécessaire."
+    },
+    "newsletter": {
+      "confirm": "Confirmer la désinscription",
+      "confirmText": "Cliquez sur le bouton pour ne plus recevoir la newsletter AGAPY-GALLERY."
     }
   }
 }

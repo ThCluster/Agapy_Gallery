@@ -7,6 +7,28 @@ import { formatNumber } from '@/lib/format'
 import type { CatalogArtistDetail } from '@/api/catalog'
 import { villaPhoto } from './villaPhotos'
 
+type Social = { label: string; url: string; network?: string }
+
+/** Réseau d'un lien (clé de traduction auth.social.<réseau>), déduit de la clé, du libellé ou de l'adresse */
+function socialNetwork(s: Social): string {
+  const known = ['facebook', 'instagram', 'x', 'tiktok', 'youtube', 'linkedin', 'website']
+  const key = (s.network ?? s.label ?? '').toLowerCase()
+  if (known.includes(key)) return key
+  if (key === 'site web') return 'website'
+  try {
+    const host = new URL(s.url).hostname.replace(/^www\./, '')
+    if (host.endsWith('instagram.com')) return 'instagram'
+    if (host.endsWith('facebook.com')) return 'facebook'
+    if (host === 'x.com' || host.endsWith('twitter.com')) return 'x'
+    if (host.endsWith('tiktok.com')) return 'tiktok'
+    if (host.endsWith('youtube.com') || host === 'youtu.be') return 'youtube'
+    if (host.endsWith('linkedin.com')) return 'linkedin'
+  } catch {
+    // adresse invalide : libellé générique
+  }
+  return 'website'
+}
+
 export function ArtistHero({ artist }: { artist: CatalogArtistDetail }) {
   const profile = { visits: artist.visits, memberSince: artist.member_since, socials: artist.socials }
   const { t, i18n } = useTranslation()
@@ -73,11 +95,14 @@ export function ArtistHero({ artist }: { artist: CatalogArtistDetail }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {profile.socials.map((s) => (
-              <a key={s.label} href={s.url} className="btn-secondary rounded-full px-3 py-1.5 text-xs" onClick={(e) => s.url === '#' && e.preventDefault()}>
-                {s.label} <ExternalLink className="size-3" />
-              </a>
-            ))}
+            {(profile.socials as Social[])
+              // Liens saisis par l'artiste : uniquement http(s), jamais javascript: ou autre schéma
+              .filter((s) => typeof s.url === 'string' && /^https?:\/\//i.test(s.url))
+              .map((s) => (
+                <a key={s.url} href={s.url} target="_blank" rel="noopener noreferrer nofollow ugc" className="btn-secondary rounded-full px-3 py-1.5 text-xs">
+                  {t(`auth.social.${socialNetwork(s)}`)} <ExternalLink className="size-3" />
+                </a>
+              ))}
             <button type="button" onClick={share} className="grid size-9 place-items-center rounded-full border border-brand-green/20 text-brand-green hover:bg-brand-mist" aria-label={t('artist.share')}>
               <Share2 className="size-4" />
             </button>

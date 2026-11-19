@@ -60,9 +60,9 @@ function inline(text: string): ReactNode[] {
     if (m.index > last) out.push(text.slice(last, m.index))
     if (m[1]) out.push(<strong key={m.index}>{m[1]}</strong>)
     else if (m[2]) out.push(<em key={m.index}>{m[2]}</em>)
-    else if (/^(https?:|mailto:|\/)/.test(m[4])) {
+    else if (/^(https?:|mailto:|\/(?![/\\]))/i.test(m[4])) {
       out.push(
-        <a key={m.index} href={m[4]} className="link" {...(m[4].startsWith('http') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+        <a key={m.index} href={m[4]} className="link" {...(/^https?:/i.test(m[4]) ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
           {m[3]}
         </a>,
       )

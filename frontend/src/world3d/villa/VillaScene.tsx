@@ -148,16 +148,17 @@ function Room({ quality, wallColor }: { quality: Quality; wallColor: string }) {
 
 /* ───────────── Œuvres encadrées, éclairées chacune par une applique ───────────── */
 
-const FRAME_MATERIAL: Record<FrameKind, THREE.MeshStandardMaterialParameters> = {
-  walnut: { color: '#4a3020', roughness: 0.45, metalness: 0 },
+const FRAME_MATERIAL: Record<Exclude<FrameKind, 'none'>, THREE.MeshStandardMaterialParameters> = {
+  wood: { color: '#4a3020', roughness: 0.45, metalness: 0 },
   gold: { color: '#c9a24a', roughness: 0.28, metalness: 0.9 },
   black: { color: '#151515', roughness: 0.35, metalness: 0.1 },
   white: { color: '#f3f1ec', roughness: 0.5, metalness: 0 },
 }
 
 function Artwork({ h: p, slot }: { h: Hanging; slot: Slot }) {
-  const photo = photos[p.photo]
-  const raw = useTexture(photo.src)
+  // Image servie par l'API ; photo d'exemple seulement pour les données de démonstration
+  const demo = p.photo ? photos[p.photo] : undefined
+  const raw = useTexture(p.image ?? demo?.src ?? '/images/art-a1.webp')
   // Copie préparée pour l'affichage (couleurs sRGB, netteté en vue rasante)
   const tex = useMemo(() => {
     const c = raw.clone()
@@ -168,9 +169,13 @@ function Artwork({ h: p, slot }: { h: Hanging; slot: Slot }) {
   }, [raw])
 
   const w = displayWidth(slot, p.size[1])
-  const h = (w * photo.height) / photo.width
-  const mat = p.frame === 'black' ? 0 : 0.14 // passe-partout blanc
-  const f = 0.07 // largeur du cadre
+  // Proportions réelles de l'image chargée
+  const img = raw.image as { width?: number; height?: number } | undefined
+  const ratio = img?.width && img?.height ? img.height / img.width : demo ? demo.height / demo.width : p.size[0] / p.size[1]
+  const h = w * ratio
+  const framed = p.frame !== 'none'
+  const mat = !framed || p.frame === 'black' ? 0 : 0.14 // passe-partout blanc
+  const f = framed ? 0.07 : 0 // largeur du cadre
   const fw = w + 2 * mat + 2 * f
   const fh = h + 2 * mat + 2 * f
 
@@ -184,10 +189,12 @@ function Artwork({ h: p, slot }: { h: Hanging; slot: Slot }) {
   const target = useMemo(() => new THREE.Object3D(), [])
   return (
     <group position={position} rotation-y={rotation}>
-      <mesh position={[0, 0, 0.03]} castShadow receiveShadow>
-        <boxGeometry args={[fw, fh, 0.06]} />
-        <meshStandardMaterial {...FRAME_MATERIAL[p.frame]} />
-      </mesh>
+      {p.frame !== 'none' && (
+        <mesh position={[0, 0, 0.03]} castShadow receiveShadow>
+          <boxGeometry args={[fw, fh, 0.06]} />
+          <meshStandardMaterial {...FRAME_MATERIAL[p.frame]} />
+        </mesh>
+      )}
       {mat > 0 && (
         <mesh position={[0, 0, 0.061]}>
           <planeGeometry args={[w + 2 * mat, h + 2 * mat]} />

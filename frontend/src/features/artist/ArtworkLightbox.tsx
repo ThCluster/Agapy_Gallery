@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Img } from '@/components/ui/Img'
 import { formatSize } from '@/lib/format'
+import { ExcerptPlayer } from './ExcerptPlayer'
 import type { CatalogArtwork } from '@/api/catalog'
 
 interface Props {
@@ -78,6 +79,7 @@ export function ArtworkLightbox({ works, index, artist, onChange, onClose }: Pro
             </div>
           </dl>
           <p className="mt-6 text-sm leading-relaxed text-brand-ink dark:text-slate-300">{work.summary || t('catalog.artwork.summary', { title: work.title, name: artist.name, city: artist.city, technique: work.technique, h: work.size[0], w: work.size[1] })}</p>
+          {work.excerpt && <ExcerptPlayer key={work.id} src={work.excerpt} title={work.title} className="mt-6" />}
           {work.copyright_office && (
             <p className="mt-6 flex items-start gap-2 rounded-xl bg-brand-mist p-4 text-xs text-gray-600 dark:bg-night-card dark:text-slate-300">
               <ShieldCheck className="size-4 shrink-0 text-brand-green" />

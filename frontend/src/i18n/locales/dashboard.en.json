@@ -143,6 +143,17 @@
         "file": "Upload the image of your artwork.",
         "fileSize": "The image is larger than 10 MB.",
         "certify": "You must certify that you own the artwork."
+      },
+      "excerpt": {
+        "label": "Audio or video excerpt (optional)",
+        "choose": "Choose an excerpt",
+        "hint": "30 seconds max · 20 MB max · MP3, M4A, MP4, WebM…",
+        "checking": "Reading the duration…",
+        "remove": "Remove the excerpt",
+        "type": "Choose an audio or video file.",
+        "size": "The excerpt must not exceed 20 MB.",
+        "unreadable": "Unable to read the duration of this file.",
+        "tooLong": "This excerpt lasts {{seconds}} s: 30 seconds maximum."
       }
     },
     "pay": {
@@ -248,7 +259,8 @@
         "pending": "Pending",
         "paid": "Paid",
         "rejected": "Rejected"
-      }
+      },
+      "disabled": "Withdrawals are temporarily unavailable: platform payments are still in test mode. Your earnings are safe and can be withdrawn as soon as real payments open."
     }
   },
   "forgot": {

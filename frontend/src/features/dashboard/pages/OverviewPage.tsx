@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { useMyGallery, useSubscription, useWallet } from '@/api/artistSpace'
 import { useBalances, useDashboardSummary, usePayouts, useRequestPayout, useRevenue, type Currency, type PayoutChannel } from '@/api/dashboard'
-import { errorMessage, toNumber } from '@/lib/api'
+import { ApiError, errorMessage, toNumber } from '@/lib/api'
 import { formatNumber } from '@/lib/format'
 import { useAuth } from '@/stores/auth'
 import { PaymentReturnNotice } from '../PayMethods'
@@ -146,10 +146,12 @@ function PayoutPanel() {
   const available = toNumber(selected?.available)
   const value = Number(amount)
   const dateFmt = new Intl.DateTimeFormat(lng, { day: 'numeric', month: 'short', year: 'numeric' })
+  // Retraits suspendus par l'API (paiements encore simulés) : formulaire désactivé
+  const disabled = request.error instanceof ApiError && request.error.status === 409 && request.error.code() === 'payouts_disabled'
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (!selected || !(value > 0)) return
+    if (disabled || !selected || !(value > 0)) return
     setSent(false)
     request.mutate(
       { amount: value.toFixed(2), currency: selected.currency, channel },
@@ -173,6 +175,7 @@ function PayoutPanel() {
           <p className="mt-4 text-sm text-rose-700">{errorMessage(balances.error)}</p>
         ) : (
           <form onSubmit={submit} className="mt-4 space-y-4">
+            <fieldset disabled={disabled} className="space-y-4 disabled:opacity-60">
             <ul className="flex flex-wrap gap-3">
               {list.map((b) => (
                 <li key={b.currency}>
@@ -199,9 +202,16 @@ function PayoutPanel() {
                 </button>
               ))}
             </div>
-            {request.isError && <p className="text-sm text-rose-700">{errorMessage(request.error)}</p>}
+            </fieldset>
+            {disabled ? (
+              <p role="status" className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+                {t('dashboard.payout.disabled')}
+              </p>
+            ) : (
+              request.isError && <p className="text-sm text-rose-700">{errorMessage(request.error)}</p>
+            )}
             {sent && <p className="text-sm text-emerald-700">{t('dashboard.payout.sent')}</p>}
-            <button type="submit" disabled={request.isPending || !selected || !(value > 0) || value > available} className="btn-action rounded-full px-6 py-3">
+            <button type="submit" disabled={disabled || request.isPending || !selected || !(value > 0) || value > available} className="btn-action rounded-full px-6 py-3">
               {request.isPending ? t('dashboard.payout.sending') : t('dashboard.payout.submit')}
             </button>
           </form>

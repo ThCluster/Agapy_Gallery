@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Eye, EyeOff, Loader2, Lock } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
@@ -189,6 +189,9 @@ function ProfileForms({ user, onUser }: { user: SessionUser; onUser: (u: Session
     iban: str(artist.iban),
     holder: str(artist.account_holder),
   })
+  // Mot de passe actuel, exigé par le backend pour modifier les coordonnées de versement
+  const [payoutPassword, setPayoutPassword] = useState('')
+  const [payoutPasswordMissing, setPayoutPasswordMissing] = useState(false)
   const [ibanError, setIbanError] = useState(false)
   const [payoutSaved, markPayout] = useSaved()
   const payoutMutation = useMutation({
@@ -199,6 +202,7 @@ function ProfileForms({ user, onUser }: { user: SessionUser; onUser: (u: Session
         payout_iban: !!payout.iban,
         iban: payout.iban,
         account_holder: payout.holder,
+        current_password: payoutPassword,
       }
       // Le numéro n'est renvoyé que s'il a changé (il est normalisé par le backend)
       if (payout.momo !== (str(artist.momo_number_display) || str(artist.momo_number))) body.momo_number = payout.momo
@@ -206,6 +210,7 @@ function ProfileForms({ user, onUser }: { user: SessionUser; onUser: (u: Session
     },
     onSuccess: (u) => {
       applyUser(u)
+      setPayoutPassword('')
       markPayout()
     },
   })
@@ -221,7 +226,17 @@ function ProfileForms({ user, onUser }: { user: SessionUser; onUser: (u: Session
   const [pwdError, setPwdError] = useState<string | null>(null)
   const pwdErr = (k: keyof PasswordForm) => pwd.formState.errors[k]?.message
 
-  const photoUrl = photo ? URL.createObjectURL(photo) : str(artist.photo) || undefined
+  // Aperçu de la nouvelle photo : une seule adresse temporaire, libérée quand la photo change
+  const [photoPreviewState, setPhotoPreview] = useState<{ file: File; url: string } | null>(null)
+  useEffect(() => {
+    if (!photo) return
+    const url = URL.createObjectURL(photo)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- adresse temporaire (ressource externe) créée et révoquée dans le même effet
+    setPhotoPreview({ file: photo, url })
+    return () => URL.revokeObjectURL(url)
+  }, [photo])
+  const photoPreview = photo && photoPreviewState?.file === photo ? photoPreviewState.url : null
+  const photoUrl = photoPreview ?? (str(artist.photo) || undefined)
 
   return (
     <div className="space-y-6">
@@ -258,6 +273,9 @@ function ProfileForms({ user, onUser }: { user: SessionUser; onUser: (u: Session
           </Field>
           <Field id="p-phone" label={t('dashboard.profile.login')} hint={t('dashboard.profile.loginHint')}>
             <input id="p-phone" value={str(user.phone_display) || user.phone} readOnly className={`${inputClass()} bg-brand-mist text-gray-500`} />
+          </Field>
+          <Field id="p-country" label={t('signup.fields.country')} hint={t('auth.payout.countryReadOnly')}>
+            <input id="p-country" value={str(artist.country_display) || str(artist.country)} readOnly className={`${inputClass()} bg-brand-mist text-gray-500`} />
           </Field>
           <Field id="p-email" label={t('signup.fields.email')} error={infoErr.email}>
             <input id="p-email" type="email" value={info.email} onChange={(e) => setInfo({ ...info, email: e.target.value })} className={inputClass(!!infoErr.email)} />
@@ -310,11 +328,12 @@ function ProfileForms({ user, onUser }: { user: SessionUser; onUser: (u: Session
         onSave={() => {
           const bad = !!payout.iban && !isValidIban(payout.iban)
           setIbanError(bad)
-          if (!bad) payoutMutation.mutate()
+          setPayoutPasswordMissing(!payoutPassword)
+          if (!bad && payoutPassword) payoutMutation.mutate()
         }}
         saved={payoutSaved}
         busy={payoutMutation.isPending}
-        error={generalError(payoutMutation.error, ['momo_operator', 'momo_number', 'iban', 'account_holder'])}
+        error={generalError(payoutMutation.error, ['momo_operator', 'momo_number', 'iban', 'account_holder', 'current_password'])}
       >
         <div className="grid gap-5 sm:grid-cols-2">
           <Field id="p-op" label={t('signup.fields.operator')} error={payoutErr.momo_operator}>
@@ -332,6 +351,23 @@ function ProfileForms({ user, onUser }: { user: SessionUser; onUser: (u: Session
           </Field>
           <Field id="p-holder" label={t('signup.fields.accountHolder')} optional error={payoutErr.account_holder}>
             <input id="p-holder" value={payout.holder} onChange={(e) => setPayout({ ...payout, holder: e.target.value })} className={inputClass(!!payoutErr.account_holder)} />
+          </Field>
+          <Field
+            id="p-payout-pwd"
+            label={t('auth.payout.currentPassword')}
+            hint={t('auth.payout.currentPasswordHint')}
+            error={payoutPasswordMissing ? 'errors.required' : payoutErr.current_password}
+            className="sm:col-span-2"
+          >
+            <input
+              id="p-payout-pwd"
+              type="password"
+              autoComplete="current-password"
+              maxLength={128}
+              value={payoutPassword}
+              onChange={(e) => setPayoutPassword(e.target.value)}
+              className={`${inputClass(payoutPasswordMissing || !!payoutErr.current_password)} max-w-sm`}
+            />
           </Field>
         </div>
       </Section>

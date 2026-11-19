@@ -14,7 +14,25 @@
       "visitThanks": "Thank you! Your visit pass is active for 24 hours.",
       "donationThanks": "Thank you for your donation: it directly supports the artist.",
       "failed": "The payment did not go through. Nothing was charged, you can try again.",
-      "enter": "Enter the gallery"
+      "enter": "Enter the gallery",
+      "pending": "Payment being confirmed… This page updates automatically.",
+      "stillPending": "The payment is not confirmed yet. Come back in a few minutes: your visit pass will be activated as soon as it is confirmed.",
+      "donationRange": "Donation amount: between {{min}} and {{max}}.",
+      "donationFormat": "Invalid donation amount: {{rule}}.",
+      "donationInteger": "a whole number of F CFA",
+      "donationDecimals": "two decimals at most"
+    },
+    "locked": {
+      "eyebrow": "Paid gallery",
+      "title": "Step into {{name}}'s gallery",
+      "text": "The entrance wall gives you a glimpse. To discover the {{count}} works, the 3D tour and the viewer, get your visit pass ({{price}}, valid for 24 hours).",
+      "cta": "Get my visit pass",
+      "artwork": "This work is exhibited in a paid gallery. Get your visit pass to see it in full.",
+      "checking": "Checking your visit pass…"
+    },
+    "excerpt": {
+      "title": "Excerpt (30 s)",
+      "unsupported": "Your browser cannot play this excerpt."
     }
   }
 }

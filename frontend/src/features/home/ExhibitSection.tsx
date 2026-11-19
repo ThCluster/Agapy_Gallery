@@ -16,8 +16,8 @@ export function ExhibitSection() {
     return {
       key,
       ht: formatPrice(p, lng),
-      // La TVA (20 %) n'est précisée au cahier des charges que pour l'Afrique
-      ttc: region === 'africa' ? formatPrice({ ...p, amount: withVat(p.amount) }, lng) : null,
+      // TVA (20 %) facturée dans toutes les zones
+      ttc: formatPrice({ ...p, amount: withVat(p.amount) }, lng),
     }
   })
   const perks = ['revenue', 'donations', 'copyright', 'moderation', 'wallet'] as const

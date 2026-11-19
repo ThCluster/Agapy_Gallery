@@ -1,6 +1,9 @@
 """API des paiements : tarifs, ouverture de compte, visites, dons, espace artiste."""
+import logging
+
 from django.conf import settings
 from django.http import Http404
+from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException, PermissionDenied
@@ -12,10 +15,11 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from apps.accounts.models import ArtistProfile, ArtistStatus
+from apps.core.net import client_ip
 from apps.core.pricing import clip_quote, quote
 
 from . import services
-from .models import Payment
+from .models import Payment, PaymentStatus
 from .providers import ProviderError
 from .serializers import (
     BalanceSerializer, DonationSerializer, PaymentStatusSerializer, PayoutCreateSerializer, PayoutSerializer,
@@ -27,7 +31,12 @@ ERROR_STATUS = {
     "not_pending_payment": status.HTTP_409_CONFLICT,
     "visit_token_invalid": status.HTTP_403_FORBIDDEN,
     "not_artist": status.HTTP_403_FORBIDDEN,
+    "payouts_disabled": status.HTTP_409_CONFLICT,
+    "payment_closed": status.HTTP_409_CONFLICT,
+    "payment_expired": status.HTTP_409_CONFLICT,
 }
+
+logger = logging.getLogger("agapy.payments")
 
 StartResponse = inline_serializer("PaymentStartResponse", {
     "payment": PaymentStatusSerializer(), "action": serializers.DictField(),
@@ -101,7 +110,7 @@ def _payer(data: dict) -> dict:
 
 
 def _visitor_key(request) -> str:
-    return request.META.get("REMOTE_ADDR", "")
+    return client_ip(request)
 
 
 # ---------------------------------------------------------------------------
@@ -138,17 +147,31 @@ class PaymentStatusView(PublicView):
 
 
 class SimulateView(PublicView):
-    """Développement uniquement : confirme ou refuse un paiement du prestataire simulé."""
+    """
+    Paiement simulé (moyen de paiement officiel tant qu'aucun prestataire réel n'est branché) :
+    confirme ou refuse un paiement du prestataire simulé, en attente et créé il y a moins de 2 heures.
+    404 si la simulation est désactivée ou si le paiement n'est pas simulé ; 409 (payment_closed,
+    payment_expired) s'il n'est plus en attente ou trop ancien.
+    """
+
+    throttle_scope = "simulate"
 
     @extend_schema(request=SimulateSerializer, responses={200: PaymentStatusSerializer}, tags=["Paiements"])
     def post(self, request, reference):
         if not settings.PAYMENT_SIMULATION_ENABLED:
             raise Http404
-        payment = Payment.objects.filter(reference=reference).first()
+        payment = Payment.objects.filter(reference=reference, provider=services.SIMULATED_PROVIDER).first()
         if payment is None:
             raise Http404
         s = SimulateSerializer(data=request.data)
         s.is_valid(raise_exception=True)
+        if payment.status != PaymentStatus.PENDING:
+            raise PaymentAPIError("payment_closed", "Ce paiement n'est plus en attente.")
+        if payment.created_at < timezone.now() - services.SIMULATION_WINDOW:
+            services.fail_payment(payment, "Paiement simulé expiré", status=PaymentStatus.CANCELLED)
+            raise PaymentAPIError("payment_expired", "Ce paiement a expiré : recommencez depuis le début.")
+        logger.info("Paiement simulé %s : %s (%s, IP %s)", s.validated_data["status"], payment.reference,
+                    payment.purpose, client_ip(request))
         if s.validated_data["status"] == "succeeded":
             payment = services.confirm_payment(payment, provider_ref=f"sim-{payment.reference[:8]}")
         else:
@@ -322,6 +345,8 @@ class PayoutView(ArtistMixin, ListAPIView):
 
     @extend_schema(request=PayoutCreateSerializer, responses={201: PayoutSerializer}, tags=["Espace artiste — revenus"])
     def post(self, request):
+        if settings.PAYMENT_SIMULATION_ENABLED:  # soldes fictifs : pas de retrait (409 payouts_disabled)
+            raise PaymentAPIError("payouts_disabled", services.PAYOUTS_DISABLED_MESSAGE)
         s = PayoutCreateSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         try:

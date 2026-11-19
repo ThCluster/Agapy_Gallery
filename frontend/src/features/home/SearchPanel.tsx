@@ -18,7 +18,8 @@ export function SearchPanel() {
   const artists = useArtists({ page_size: 100 })
   const works = useArtworks({ page_size: 100 })
   const SUGGESTIONS: Record<Mode, string[]> = {
-    artist: (artists.data?.results ?? []).map((a) => a.name),
+    // Homonymes possibles (deux « Awa Koné ») : une seule suggestion par nom
+    artist: [...new Set((artists.data?.results ?? []).map((a) => a.name))],
     artwork: [...new Set((works.data?.results ?? []).map((a) => a.title))],
     free: [],
   }

@@ -1,3 +1,5 @@
+from urllib.parse import urlsplit
+
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import update_last_login
@@ -9,7 +11,9 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
+from apps.core.net import client_ip
 from apps.core.phone import format_international
 
 from . import services
@@ -50,6 +54,30 @@ class PublicView(APIView):
         return 'Bearer realm="api"'
 
 
+def _check_origin(request) -> None:
+    """
+    Les vues qui lisent le cookie de rafraîchissement refusent les appels venant d'un autre site
+    (en plus de SameSite). Sans en-tête Origin (outil en ligne de commande, vieux navigateur), on laisse passer.
+    """
+    origin = request.headers.get("Origin")
+    if not origin:
+        return
+    origin = origin.rstrip("/")
+    allowed = {o.rstrip("/") for o in (*settings.CORS_ALLOWED_ORIGINS, *settings.CSRF_TRUSTED_ORIGINS, settings.FRONTEND_URL)}
+    if origin in allowed:
+        return
+    try:
+        parts = urlsplit(origin)
+        if parts.netloc == request.get_host():
+            return
+        # Développement : le proxy Vite réécrit l'hôte et le port du site peut changer (5173, 5174…)
+        if settings.DEBUG and parts.hostname in ("localhost", "127.0.0.1", "[::1]", "::1"):
+            return
+    except Exception:
+        pass
+    raise PermissionDenied("Origine de la requête non autorisée.", code="origin_forbidden")
+
+
 def _tokens_response(user, remember: bool, data: dict | None = None, status_code=status.HTTP_200_OK):
     access, refresh = issue_tokens(user, remember=remember)
     response = Response({"access": access, **(data or {})}, status=status_code)
@@ -70,15 +98,16 @@ class LoginView(PublicView):
         s = LoginSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         phone = s.validated_data["phone"]
+        ip = client_ip(request)
 
-        if services.is_login_locked(phone):
+        if services.is_login_locked(phone, ip):
             raise LoginLocked()
         user = authenticate(request, phone=phone, password=s.validated_data["password"])
         if user is None:
-            services.record_login_failure(phone)
+            services.record_login_failure(phone, ip)
             raise AuthenticationFailed("Numéro ou mot de passe incorrect.", code="invalid_credentials")
 
-        services.reset_login_failures(phone)
+        services.reset_login_failures(phone, ip)
         update_last_login(None, user)
         return _tokens_response(user, s.validated_data["remember"], {"user": MeSerializer(user, context={"request": request}).data})
 
@@ -93,6 +122,7 @@ class RefreshView(PublicView):
 
     @extend_schema(request=None, responses={200: AccessResponse}, tags=["Authentification"])
     def post(self, request):
+        _check_origin(request)
         raw = request.COOKIES.get(settings.REFRESH_COOKIE["NAME"])
         failure = AuthenticationFailed("Session expirée, reconnectez-vous.", code="session_expired")
         if not raw:
@@ -103,11 +133,13 @@ class RefreshView(PublicView):
             raise failure
 
         user = User.objects.filter(pk=token.get("user_id"), is_active=True).first()
-        try:
-            token.blacklist()  # usage unique
-        except TokenError:
-            pass
-        if user is None or token.get("ver") != user.auth_version:
+        # Usage unique, même en cas d'appels simultanés : la contrainte d'unicité de la liste noire
+        # garantit qu'une seule requête crée l'entrée ; les autres sont refusées.
+        outstanding = OutstandingToken.objects.filter(jti=token.get("jti")).first()
+        if outstanding is None:
+            raise failure
+        _, created = BlacklistedToken.objects.get_or_create(token=outstanding)
+        if not created or user is None or token.get("ver") != user.auth_version:
             raise failure
         return _tokens_response(user, token.get("rem", True))
 
@@ -121,6 +153,7 @@ class LogoutView(PublicView):
 
     @extend_schema(request=None, responses={204: None}, tags=["Authentification"])
     def post(self, request):
+        _check_origin(request)
         raw = request.COOKIES.get(settings.REFRESH_COOKIE["NAME"])
         if raw:
             try:
@@ -137,6 +170,8 @@ class LogoutView(PublicView):
 # ---------------------------------------------------------------------------
 class PasswordChangeView(APIView):
     """Depuis l'espace artiste. Déconnecte les autres appareils, garde la session en cours."""
+
+    throttle_scope = "password_change"
 
     @extend_schema(request=PasswordChangeSerializer, responses={200: AccessResponse}, tags=["Mot de passe"])
     def post(self, request):
@@ -262,12 +297,18 @@ class MeView(APIView):
 
 
 class PayoutView(APIView):
-    """Moyens de versement des gains (mobile money et/ou IBAN)."""
+    """
+    Moyens de versement des gains (mobile money et/ou IBAN). Demande le mot de passe actuel
+    (un jeton volé ne suffit pas à détourner les gains) et prévient l'artiste par SMS.
+    """
+
+    throttle_scope = "password_change"
 
     @extend_schema(request=PayoutSerializer, responses={200: MeSerializer}, tags=["Compte"])
     def patch(self, request):
         s = PayoutSerializer(_artist_of(request.user), data=request.data, partial=True)
         s.is_valid(raise_exception=True)
         s.save()
+        services.notify_payout_changed(request.user)
         request.user.refresh_from_db()
         return Response(MeSerializer(request.user, context={"request": request}).data)

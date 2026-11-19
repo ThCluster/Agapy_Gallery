@@ -6,6 +6,7 @@ from django.db import models
 from django.utils import timezone
 
 from apps.core.pricing import CLIP_MAX_SECONDS
+from apps.core.uploads import SafeImageField
 
 
 def clip_upload_path(instance, filename):
@@ -20,6 +21,7 @@ def clip_poster_path(instance, filename):
 
 class ClipStatus(models.TextChoices):
     AWAITING_PAYMENT = "awaiting_payment", "En attente du paiement"
+    PENDING_REVIEW = "pending_review", "Payé, en attente de validation"
     QUEUED = "queued", "Payé, en file d'attente"
     PLAYING = "playing", "En diffusion"
     FINISHED = "finished", "Diffusion terminée"
@@ -27,14 +29,18 @@ class ClipStatus(models.TextChoices):
 
 
 class Clip(models.Model):
-    """Clip de 30 s au plus, diffusé 24 h sur l'accueil après paiement (50 clips à la fois au plus)."""
+    """
+    Clip de 30 s au plus, diffusé 24 h sur l'accueil (50 clips à la fois au plus).
+    Après paiement il attend la validation de l'équipe, puis entre dans la file de diffusion.
+    """
 
     title = models.CharField("titre", max_length=150)
     advertiser = models.CharField("annonceur", max_length=150)
     contact_phone = models.CharField("téléphone de contact", max_length=20, blank=True)
     contact_email = models.EmailField("e-mail de contact", blank=True)
     video = models.FileField("vidéo", upload_to=clip_upload_path)
-    poster = models.ImageField("affiche", upload_to=clip_poster_path, blank=True)
+    # JPEG / PNG / WebP vérifiés puis ré-encodés (métadonnées supprimées) : voir apps.core.uploads
+    poster = SafeImageField("affiche", upload_to=clip_poster_path, blank=True)
     duration_seconds = models.PositiveSmallIntegerField("durée déclarée (s)", help_text=f"{CLIP_MAX_SECONDS} s au plus.")
     # Renseigné si le clip est commandé depuis un compte artiste
     artist = models.ForeignKey("accounts.ArtistProfile", on_delete=models.SET_NULL, null=True, blank=True,

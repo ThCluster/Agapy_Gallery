@@ -143,6 +143,17 @@
         "file": "Importez l’image de votre œuvre.",
         "fileSize": "L’image dépasse 10 Mo.",
         "certify": "Vous devez certifier être propriétaire de l’œuvre."
+      },
+      "excerpt": {
+        "label": "Extrait audio ou vidéo (facultatif)",
+        "choose": "Choisir un extrait",
+        "hint": "30 secondes au plus · 20 Mo au plus · MP3, M4A, MP4, WebM…",
+        "checking": "Lecture de la durée…",
+        "remove": "Retirer l’extrait",
+        "type": "Choisissez un fichier audio ou vidéo.",
+        "size": "L’extrait ne doit pas dépasser 20 Mo.",
+        "unreadable": "Impossible de lire la durée de ce fichier.",
+        "tooLong": "Cet extrait dure {{seconds}} s : 30 secondes au maximum."
       }
     },
     "pay": {
@@ -248,7 +259,8 @@
         "pending": "En attente",
         "paid": "Versé",
         "rejected": "Refusé"
-      }
+      },
+      "disabled": "Les retraits sont momentanément indisponibles : les paiements de la plateforme sont encore en mode test. Vos revenus restent acquis et pourront être retirés dès l’ouverture des paiements réels."
     }
   },
   "forgot": {

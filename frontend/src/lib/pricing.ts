@@ -51,10 +51,15 @@ export function formatPrice({ amount, currency }: Price, locale = 'fr'): string 
   return new Intl.NumberFormat(locale, { style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(amount)
 }
 
-/** Prix TTC pour l'Afrique (seule zone où la TVA est précisée), HT ailleurs */
+/** Montant TTC d'un tarif : le backend facture la TVA (20 %) dans toutes les zones */
+export function ttcAmount(prices: Record<Region, Price>, region: Region): number {
+  return withVat(prices[region].amount)
+}
+
+/** Prix TTC affiché, dans la devise de la zone */
 export function displayPrice(prices: Record<Region, Price>, region: Region, locale = 'fr'): string {
   const p = prices[region]
-  return formatPrice(region === 'africa' ? { ...p, amount: withVat(p.amount) } : p, locale)
+  return formatPrice({ ...p, amount: withVat(p.amount) }, locale)
 }
 
 function detectRegion(): Region {

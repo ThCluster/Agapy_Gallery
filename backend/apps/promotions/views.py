@@ -34,10 +34,12 @@ class ClipCreateView(APIView):
     """
     Commande d'un clip de 30 s sur l'accueil pendant 24 h (3 300 F TTC), sans compte.
     Un artiste connecté peut aussi commander : le clip et le paiement lui sont alors rattachés.
+    Une fois payé, le clip passe en « pending_review » jusqu'à sa validation par l'équipe.
     """
 
     permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser]
+    throttle_scope = "clip_create"
 
     @extend_schema(request=ClipCreateSerializer, responses={201: ClipOrderResponse}, tags=["Publicité"])
     def post(self, request):

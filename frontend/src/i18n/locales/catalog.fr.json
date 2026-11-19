@@ -14,7 +14,25 @@
       "visitThanks": "Merci ! Votre droit de visite est actif pendant 24 heures.",
       "donationThanks": "Merci pour votre don : il soutient directement l'artiste.",
       "failed": "Le paiement n'a pas abouti. Aucun montant n'a été débité, vous pouvez réessayer.",
-      "enter": "Entrer dans la galerie"
+      "enter": "Entrer dans la galerie",
+      "pending": "Paiement en cours de confirmation… Cette page se met à jour automatiquement.",
+      "stillPending": "Le paiement n'est pas encore confirmé. Revenez dans quelques minutes : votre droit de visite s'activera dès la confirmation.",
+      "donationRange": "Montant du don : entre {{min}} et {{max}}.",
+      "donationFormat": "Montant du don invalide : {{rule}}.",
+      "donationInteger": "un nombre entier de F CFA",
+      "donationDecimals": "deux décimales au plus"
+    },
+    "locked": {
+      "eyebrow": "Galerie payante",
+      "title": "Entrez dans la galerie de {{name}}",
+      "text": "Le muret d'entrée vous donne un aperçu. Pour découvrir les {{count}} œuvres, la visite en 3D et la visionneuse, prenez votre droit de visite ({{price}}, valable 24 heures).",
+      "cta": "Prendre mon droit de visite",
+      "artwork": "Cette œuvre est exposée dans une galerie payante. Prenez votre droit de visite pour la voir en grand.",
+      "checking": "Vérification de votre droit de visite…"
+    },
+    "excerpt": {
+      "title": "Extrait (30 s)",
+      "unsupported": "Votre navigateur ne peut pas lire cet extrait."
     }
   }
 }

@@ -109,6 +109,8 @@ class WalletTests(Base):
         self.assertEqual(r.status_code, 400)
         self.assertEqual(r.data["codes"]["detail"], "wallet_insufficient")
         self.assertEqual(Wallet.objects.get(artist=self.artist).balance, Decimal("5000"))
+        # Pas de paiement « en attente » orphelin : il est marqué échoué
+        self.assertFalse(Payment.objects.filter(purpose="renewal", status=PaymentStatus.PENDING).exists())
 
     def test_wallet_payment_ok(self):
         self.fund_wallet("20000")

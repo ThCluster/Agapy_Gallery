@@ -1,6 +1,5 @@
-import type { FrameId } from '@/stores/artistSpace'
-
-export type { FrameId }
+/** Identifiants des cadres virtuels (mêmes valeurs que GET /catalog/frames/ et la villa 3D) */
+export type FrameId = 'black' | 'wood' | 'gold' | 'white' | 'none'
 
 /** Cadres proposés (mêmes valeurs que GET /catalog/frames/) */
 export const FRAMES: FrameId[] = ['black', 'wood', 'gold', 'white', 'none']

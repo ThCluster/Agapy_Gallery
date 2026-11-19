@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { api, setTokenBridge } from '@/lib/api'
+import { ApiError, api, setTokenBridge } from '@/lib/api'
+import { queryClient } from '@/lib/queryClient'
 
 /**
  * Session de l'artiste connecté, branchée sur /api/v1/auth/.
@@ -40,6 +41,31 @@ interface AuthState {
   refresh: () => Promise<boolean>
 }
 
+/**
+ * Indicateur NON secret « une session a existé dans ce navigateur » : évite d'appeler
+ * /auth/refresh/ (et d'obtenir un 401) pour un visiteur qui ne s'est jamais connecté.
+ * Le vrai secret reste le cookie HttpOnly.
+ */
+const SESSION_HINT = 'agapy-session'
+
+function setSessionHint(on: boolean) {
+  try {
+    if (on) localStorage.setItem(SESSION_HINT, '1')
+    else localStorage.removeItem(SESSION_HINT)
+  } catch {
+    // stockage indisponible
+  }
+}
+
+function hasSessionHint(): boolean {
+  try {
+    return localStorage.getItem(SESSION_HINT) === '1'
+  } catch {
+    // stockage indisponible : on tente le rafraîchissement (comportement sûr)
+    return true
+  }
+}
+
 let refreshing: Promise<boolean> | null = null
 let initializing: Promise<void> | null = null
 
@@ -60,10 +86,16 @@ export const useAuth = create<AuthState>()((set, get) => ({
     refreshing ??= api<{ access: string }>('/auth/refresh/', { method: 'POST', auth: false })
       .then(({ access }) => {
         set({ access })
+        setSessionHint(true)
         return true
       })
-      .catch(() => {
-        set({ access: null, status: 'anonymous', ...fromUser(null) })
+      .catch((e: unknown) => {
+        // Session refusée par le serveur : on déconnecte. Erreur réseau : on garde l'état actuel.
+        if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+          setSessionHint(false)
+          queryClient.clear()
+          set({ access: null, status: 'anonymous', ...fromUser(null) })
+        }
         return false
       })
       .finally(() => {
@@ -74,6 +106,10 @@ export const useAuth = create<AuthState>()((set, get) => ({
 
   init: () => {
     initializing ??= (async () => {
+      if (!hasSessionHint()) {
+        set({ status: 'anonymous' })
+        return
+      }
       if (await get().refresh()) {
         try {
           const user = await api<SessionUser>('/accounts/me/')
@@ -81,6 +117,8 @@ export const useAuth = create<AuthState>()((set, get) => ({
         } catch {
           set({ status: 'anonymous', access: null, ...fromUser(null) })
         }
+      } else if (get().status === 'unknown') {
+        set({ status: 'anonymous' })
       }
     })()
     return initializing
@@ -88,6 +126,8 @@ export const useAuth = create<AuthState>()((set, get) => ({
 
   login: async (input) => {
     const { access, user } = await api<{ access: string; user: SessionUser }>('/auth/login/', { method: 'POST', body: input, auth: false })
+    queryClient.clear()
+    setSessionHint(true)
     set({ access, status: 'authenticated', ...fromUser(user) })
     return user
   },
@@ -96,6 +136,8 @@ export const useAuth = create<AuthState>()((set, get) => ({
     try {
       await api('/auth/logout/', { method: 'POST', auth: false })
     } finally {
+      setSessionHint(false)
+      queryClient.clear()
       set({ access: null, status: 'anonymous', ...fromUser(null) })
     }
   },

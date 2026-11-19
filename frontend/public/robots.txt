@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+Disallow: /tableau-de-bord
+Disallow: /paiement

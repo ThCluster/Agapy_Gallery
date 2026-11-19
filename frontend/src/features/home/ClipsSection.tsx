@@ -1,28 +1,24 @@
-import { ChevronLeft, ChevronRight, Pause, Play, Radio } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Film, Pause, Play, Radio } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { useLiveClips, useLiveTv } from '@/api/promotions'
-import { Img } from '@/components/ui/Img'
 import { Reveal } from '@/components/ui/Reveal'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { formatXOF } from '@/lib/format'
 import { CLIP_PRICE_XOF } from '@/lib/pricing'
-import { clips as demoClips } from '@/mocks/homeData'
-import type { PhotoKey } from '@/mocks/photos'
 
 /** Durée maximale d'un clip, et nombre de clips diffusés en boucle sur 24 h */
 const CLIP_SECONDS = 30
 const MAX_CLIPS = 50
 
-/** Clip à l'affiche : vidéo réelle (API) ou clip de démonstration (photo) */
+/** Clip à l'affiche (API) */
 interface Item {
   id: string
   title: string
   advertiser: string
-  video?: string
+  video: string
   poster?: string | null
-  photo?: PhotoKey
 }
 
 /**
@@ -34,22 +30,30 @@ export function ClipsSection() {
   const { t, i18n } = useTranslation()
   const { data: live } = useLiveClips()
   const { data: tv } = useLiveTv()
-  // Clips en diffusion ; sans clip payé, on garde les clips de démonstration
-  const clips: Item[] = live?.length
-    ? live.map((c) => ({ id: `api-${c.id}`, title: c.title, advertiser: c.advertiser, video: c.video, poster: c.poster }))
-    : demoClips.map((c) => ({ id: c.id, title: c.title, advertiser: c.advertiser, photo: c.poster as PhotoKey }))
+  // Clips en diffusion ; sans clip payé, un emplacement « Votre clip ici »
+  const clips: Item[] = (live ?? []).map((c) => ({ id: `api-${c.id}`, title: c.title, advertiser: c.advertiser, video: c.video, poster: c.poster }))
   const [index, setIndex] = useState(0)
   const [paused, setPaused] = useState(false)
   const [progress, setProgress] = useState(0)
   const videoRef = useRef<HTMLVideoElement>(null)
-  const safeIndex = index % clips.length
-  const clip = clips[safeIndex]
+  const safeIndex = clips.length ? index % clips.length : 0
+  const clip = clips[safeIndex] as Item | undefined
   const go = (dir: 1 | -1) => {
+    if (!clips.length) return
     setProgress(0)
     setIndex((i) => (i + dir + clips.length) % clips.length)
   }
+  /** Clip suivant ; un seul clip : il recommence */
+  const next = () => {
+    const v = videoRef.current
+    if (clips.length === 1 && v) {
+      v.currentTime = 0
+      setProgress(0)
+      void v.play()
+    } else go(1)
+  }
   const upNext = clips.length > 1 ? [1, 2, 3].slice(0, clips.length - 1).map((n) => clips[(safeIndex + n) % clips.length]) : []
-  const total = live?.length ? live.length : MAX_CLIPS
+  const total = clips.length
 
   // Lecture / pause de la vidéo réelle
   useEffect(() => {
@@ -57,7 +61,7 @@ export function ClipsSection() {
     if (!v) return
     if (paused) v.pause()
     else v.play().catch(() => setPaused(true))
-  }, [paused, clip.id])
+  }, [paused, clip?.id])
 
   return (
     <section className="py-24">
@@ -71,74 +75,76 @@ export function ClipsSection() {
           <Reveal>
             <div className="overflow-hidden rounded-2xl bg-brand-mist text-white shadow-[0_24px_60px_-30px_rgb(30_46_41/0.45)]">
               <div className="relative aspect-video">
-                {clip.video ? (
-                  <video
-                    key={clip.id}
-                    ref={videoRef}
-                    src={clip.video}
-                    poster={clip.poster ?? undefined}
-                    autoPlay
-                    muted
-                    playsInline
-                    preload="auto"
-                    // Le clip suivant démarre tout seul, en boucle (un seul clip : il recommence)
-                    onEnded={() => {
-                      if (clips.length === 1 && videoRef.current) {
-                        videoRef.current.currentTime = 0
-                        void videoRef.current.play()
-                      } else go(1)
-                    }}
-                    onTimeUpdate={(e) => {
-                      const v = e.currentTarget
-                      if (v.duration) setProgress(v.currentTime / v.duration)
-                    }}
-                    onError={() => {
-                      if (clips.length > 1) go(1)
-                    }}
-                    className="h-full w-full bg-black object-cover"
-                  />
+                {clip ? (
+                  <>
+                    <video
+                      key={clip.id}
+                      ref={videoRef}
+                      src={clip.video}
+                      poster={clip.poster ?? undefined}
+                      autoPlay
+                      muted
+                      playsInline
+                      preload="auto"
+                      onEnded={next}
+                      onTimeUpdate={(e) => {
+                        const v = e.currentTarget
+                        // 30 s au plus par clip, même si la vidéo est plus longue
+                        const length = Math.min(v.duration || CLIP_SECONDS, CLIP_SECONDS)
+                        setProgress(Math.min(1, v.currentTime / length))
+                        if (v.currentTime >= CLIP_SECONDS && !v.paused) {
+                          v.pause()
+                          next()
+                        }
+                      }}
+                      onError={() => {
+                        if (clips.length > 1) go(1)
+                      }}
+                      className="h-full w-full bg-black object-cover"
+                    />
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                    <span className="absolute top-4 left-4 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold tracking-wider uppercase backdrop-blur">
+                      {t('home.clips.ad')} · {safeIndex + 1} / {total}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setPaused((p) => !p)}
+                      aria-label={paused ? t('home.clips.play') : t('home.clips.pause')}
+                      className="absolute top-1/2 left-1/2 grid size-16 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-brand-graphite shadow-xl transition hover:scale-105"
+                    >
+                      {paused ? <Play className="ml-1 size-7" /> : <Pause className="size-7" />}
+                    </button>
+                    <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-5">
+                      <div>
+                        <p className="text-lg font-semibold sm:text-xl">{clip.title}</p>
+                        <p className="text-sm text-white/70">{clip.advertiser}</p>
+                      </div>
+                      {clips.length > 1 && (
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => go(-1)} aria-label={t('common.previous')} className="grid size-10 place-items-center rounded-full bg-white/15 backdrop-blur hover:bg-white/30">
+                            <ChevronLeft className="size-5" />
+                          </button>
+                          <button type="button" onClick={() => go(1)} aria-label={t('common.next')} className="grid size-10 place-items-center rounded-full bg-white/15 backdrop-blur hover:bg-white/30">
+                            <ChevronRight className="size-5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </>
                 ) : (
-                  <Img key={clip.id} photo={clip.photo ?? 'hero_gallery'} alt="" className="h-full w-full object-cover" />
+                  <Link to="/publicite" className="group absolute inset-0 grid place-items-center bg-gradient-to-br from-brand-graphite to-brand-green p-6 text-center text-white">
+                    <span>
+                      <Film className="mx-auto size-10 text-brand-orange" />
+                      <span className="mt-4 block text-2xl font-semibold">{t('home.clips.placeholderTitle')}</span>
+                      <span className="mt-2 block text-sm text-white/80">{t('home.clips.placeholderText', { max: MAX_CLIPS, seconds: CLIP_SECONDS })}</span>
+                      <span className="btn mt-5 inline-flex bg-white text-brand-orange group-hover:bg-brand-orange group-hover:text-white">{t('home.clips.offerCta')}</span>
+                    </span>
+                  </Link>
                 )}
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                <span className="absolute top-4 left-4 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold tracking-wider uppercase backdrop-blur">
-                  {t('home.clips.ad')} · {safeIndex + 1} / {total}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setPaused((p) => !p)}
-                  aria-label={paused ? t('home.clips.play') : t('home.clips.pause')}
-                  className="absolute top-1/2 left-1/2 grid size-16 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-brand-graphite shadow-xl transition hover:scale-105"
-                >
-                  {paused ? <Play className="ml-1 size-7" /> : <Pause className="size-7" />}
-                </button>
-                <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-5">
-                  <div>
-                    <p className="text-lg font-semibold sm:text-xl">{clip.title}</p>
-                    <p className="text-sm text-white/70">{clip.advertiser}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => go(-1)} aria-label={t('common.previous')} className="grid size-10 place-items-center rounded-full bg-white/15 backdrop-blur hover:bg-white/30">
-                      <ChevronLeft className="size-5" />
-                    </button>
-                    <button type="button" onClick={() => go(1)} aria-label={t('common.next')} className="grid size-10 place-items-center rounded-full bg-white/15 backdrop-blur hover:bg-white/30">
-                      <ChevronRight className="size-5" />
-                    </button>
-                  </div>
-                </div>
               </div>
               {/* Barre de progression : à la fin des 30 s, le clip suivant démarre tout seul */}
               <div className="h-1 bg-brand-green/10">
-                {clip.video ? (
-                  <div className="h-full origin-left bg-brand-orange" style={{ transform: `scaleX(${progress})` }} />
-                ) : (
-                  <div
-                    key={clip.id}
-                    onAnimationEnd={() => go(1)}
-                    className="h-full origin-left bg-brand-orange"
-                    style={{ animation: `agapy-progress ${CLIP_SECONDS}s linear forwards`, animationPlayState: paused ? 'paused' : 'running' }}
-                  />
-                )}
+                {clip && <div className="h-full origin-left bg-brand-orange" style={{ transform: `scaleX(${progress})` }} />}
               </div>
             </div>
           </Reveal>
@@ -159,9 +165,7 @@ export function ClipsSection() {
                       }}
                       className="flex w-full items-center gap-3 rounded-lg text-left text-brand-graphite hover:text-brand-green dark:text-white">
                       <span className="block h-12 w-20 shrink-0 overflow-hidden rounded-md">
-                        {c.photo ? (
-                          <Img photo={c.photo} alt="" className="h-full w-full object-cover" />
-                        ) : c.poster ? (
+                        {c.poster ? (
                           <img src={c.poster} alt="" loading="lazy" className="h-full w-full object-cover" />
                         ) : (
                           <span className="grid h-full w-full place-items-center bg-brand-graphite text-white/70">

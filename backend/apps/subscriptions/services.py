@@ -146,7 +146,13 @@ def request_renewal(artist: ArtistProfile, user, method: str):
         purpose="renewal", method=method, quote=quote("renewal", artist.region),
         region=artist.region, artist=artist, payer_user=user,
     )
-    return payment, payments.start_payment(payment)
+    try:
+        action = payments.start_payment(payment)
+    except ProviderError as exc:
+        # Débit du Compte d'Avoir refusé (solde insuffisant…) : pas de paiement « en attente » orphelin
+        payments.fail_payment(payment, exc.message)
+        raise
+    return payment, action
 
 
 def subscription_summary(artist: ArtistProfile) -> dict | None:

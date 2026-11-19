@@ -10,7 +10,16 @@ class ClipAdmin(admin.ModelAdmin):
     list_filter = ["status"]
     search_fields = ["title", "advertiser", "contact_phone", "contact_email"]
     readonly_fields = ["status", "paid_at", "starts_at", "ends_at", "created_at", "artist"]
-    actions = ["reject", "refresh"]
+    actions = ["approve", "reject", "refresh"]
+
+    @admin.action(description="Approuver (entre dans la file de diffusion)")
+    def approve(self, request, queryset):
+        count = sum(services.approve_clip(clip) for clip in queryset.filter(status=ClipStatus.PENDING_REVIEW))
+        self.message_user(request, f"{count} clip(s) approuvé(s).", messages.SUCCESS)
+        skipped = queryset.exclude(status=ClipStatus.PENDING_REVIEW).count()
+        if skipped:
+            self.message_user(request, f"{skipped} clip(s) ignoré(s) : ils ne sont pas en attente de validation.",
+                              messages.WARNING)
 
     @admin.action(description="Rejeter (clip inapproprié)")
     def reject(self, request, queryset):

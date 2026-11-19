@@ -63,7 +63,7 @@ export function VillaOfTheWeek() {
 
             <div className="mt-6 grid grid-cols-3 gap-3">
               {HALLS.map((hall, i) => (
-                <Link key={hall} to={`/artistes/${artist.id}`} className="group relative aspect-square overflow-hidden rounded-xl bg-brand-mist">
+                <Link key={`${hall}-${i}`} to={`/artistes/${artist.id}`} className="group relative aspect-square overflow-hidden rounded-xl bg-brand-mist">
                   <Img photo={hall} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-110" />
                   <span className="absolute bottom-2 left-2 rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-semibold text-brand-graphite">
                     {t('home.villa.hall', { n: i + 1 })}

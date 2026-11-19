@@ -5,10 +5,12 @@ from rest_framework import serializers
 
 from apps.payments.serializers import PaymentSummarySerializer  # noqa: F401  (réexporté)
 
+from apps.core.uploads import ImageValidator, MediaValidator
 from apps.payments.models import Method
 
 from .models import (
     ARTWORK_IMAGE_MAX_BYTES,
+    EXCERPT_EXTENSIONS,
     EXCERPT_MAX_BYTES,
     EXCERPT_MAX_SECONDS,
     Artwork,
@@ -32,6 +34,7 @@ class MyArtworkSerializer(serializers.ModelSerializer):
     image = serializers.ImageField()
     owner_certified = serializers.BooleanField(required=False)
     excerpt_duration = serializers.IntegerField(required=False, allow_null=True, min_value=0)
+    is_free = serializers.BooleanField(read_only=True, help_text="Réservé : sans effet pour l'instant.")
 
     class Meta:
         model = Artwork
@@ -47,19 +50,23 @@ class MyArtworkSerializer(serializers.ModelSerializer):
             "slug", "recommended", "team_favorite", "status", "publication_settled", "moderation_reason",
             "submitted_at", "published_at", "view_count", "created_at", "updated_at",
         ]
-        extra_kwargs = {"height_cm": {"min_value": Decimal("0.1")}, "width_cm": {"min_value": Decimal("0.1")}}
+        extra_kwargs = {
+            "height_cm": {"min_value": Decimal("0.1")}, "width_cm": {"min_value": Decimal("0.1")},
+            "excerpt": {"validators": []},  # vérifié par validate_excerpt (extension et signature)
+        }
 
     def get_size(self, obj) -> list[float]:
         return _size(obj)
 
     def validate_image(self, image):
-        if image.size > ARTWORK_IMAGE_MAX_BYTES:
-            raise serializers.ValidationError("L'image ne doit pas dépasser 10 Mo.", code="image_size")
+        # JPEG / PNG / WebP réels, 10 Mo au plus : codes file_type, file_too_large, image_too_large
+        ImageValidator(ARTWORK_IMAGE_MAX_BYTES)(image)
         return image
 
     def validate_excerpt(self, excerpt):
-        if excerpt and excerpt.size > EXCERPT_MAX_BYTES:
-            raise serializers.ValidationError("L'extrait ne doit pas dépasser 20 Mo.", code="excerpt_size")
+        # Signature du fichier conforme à son extension, 20 Mo au plus : codes file_type, file_too_large
+        if excerpt:
+            MediaValidator(EXCERPT_EXTENSIONS, EXCERPT_MAX_BYTES, label="L'extrait")(excerpt)
         return excerpt
 
     def validate_excerpt_duration(self, value):
@@ -155,6 +162,7 @@ class PublicArtistSerializer(serializers.Serializer):
     free = serializers.SerializerMethodField()
     free_until = serializers.SerializerMethodField()
     artwork_count = serializers.SerializerMethodField()
+    visits = serializers.SerializerMethodField(help_text="Visites réelles de la galerie (gratuites et payantes).")
 
     def _works(self, obj) -> list:
         works = getattr(obj, "published_works", None)
@@ -195,12 +203,19 @@ class PublicArtistSerializer(serializers.Serializer):
     def get_artwork_count(self, obj) -> int:
         return len(self._works(obj))
 
+    def get_visits(self, obj) -> int:
+        """Visites enregistrées (VisitLog), annotées par la vue (visit_total) ou comptées ici."""
+        total = getattr(obj, "visit_total", None)
+        if total is None:
+            from apps.payments.models import VisitLog
+            total = VisitLog.objects.filter(artist=obj).count()
+        return total
+
 
 class PublicArtistDetailSerializer(PublicArtistSerializer):
     bio = serializers.CharField()
     member_since = serializers.SerializerMethodField()
     copyright_office = serializers.SerializerMethodField()
-    visits = serializers.SerializerMethodField()
     socials = serializers.SerializerMethodField()
     artworks = serializers.SerializerMethodField()
 
@@ -210,9 +225,6 @@ class PublicArtistDetailSerializer(PublicArtistSerializer):
     def get_copyright_office(self, obj) -> str:
         works = sorted(self._works(obj), key=lambda w: w.published_at or w.created_at, reverse=True)
         return works[0].copyright_office if works else ""
-
-    def get_visits(self, obj) -> int:
-        return sum(w.view_count for w in self._works(obj))
 
     def get_socials(self, obj) -> list[dict]:
         links = [("Instagram", obj.instagram), ("Facebook", obj.facebook), ("Site web", obj.website)]

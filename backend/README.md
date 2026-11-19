@@ -123,12 +123,13 @@ python manage.py send_quarterly_statements  # tous les 3 mois (ex. 0 9 1 1,4,7,1
   stocké au format international E.164 (`+2250700000000`) : un numéro = un compte.
 - Mot de passe : **8 à 12 caractères, lettres et chiffres**. Il est stocké avec **Argon2**.
 - L'inscription crée un compte **en attente du paiement**, inactif et sans mot de passe. Quand les frais
-  d'ouverture sont payés, `services.activate_account()` génère le mot de passe et envoie les identifiants
-  par SMS et e-mail. En attendant le module paiements, l'administration propose l'action
+  d'ouverture sont payés, `services.activate_account()` génère le mot de passe et l'envoie **uniquement
+  par SMS** (le numéro est l'identité du compte) ; l'e-mail annonce l'activation sans le mot de passe. En attendant le module paiements, l'administration propose l'action
   « Activer le compte (frais d'ouverture reçus) ».
 - Le mot de passe généré est en **majuscules et chiffres** (p. 15), sans caractères ambigus (0/O, 1/I).
 - Une inscription commencée mais jamais payée peut être recommencée avec le même numéro.
-- L'artiste peut modifier **toutes** ses informations (p. 10, 17), sauf le numéro de connexion et la civilité.
+- L'artiste peut modifier **toutes** ses informations (p. 10, 17), sauf le numéro de connexion, la civilité
+  et le pays (il fixe la zone tarifaire et la devise du Compte d'Avoir : changement par l'équipe).
 - Administration : actions **liste rouge 3 mois** et **exclusion définitive** (désactive le compte et ferme les sessions).
 
 ### Sécurité de la session
@@ -139,8 +140,14 @@ python manage.py send_quarterly_statements  # tous les 3 mois (ex. 0 9 1 1,4,7,1
 | Jeton de rafraîchissement | Cookie `agapy_refresh` **HttpOnly**, `SameSite=Lax`, `Secure` en production, limité à `/api/v1/auth/`. 30 jours avec « Se souvenir de moi », sinon cookie de session (12 h max) |
 | Rotation | À chaque rafraîchissement, un nouveau cookie est émis et l'ancien est mis en **liste noire** (rejouer un vieux jeton échoue) |
 | Changement de mot de passe | Toutes les autres sessions sont coupées immédiatement, y compris les jetons d'accès encore valides (champ `auth_version`) |
-| Force brute | 5 échecs sur un numéro → blocage 15 min ; limites de débit par adresse IP sur la connexion, les SMS et l'inscription |
-| Mot de passe oublié | Code SMS à 6 chiffres, valable 10 min, 5 essais, 60 s entre deux envois. Seule son empreinte est stockée. La réponse est identique que le numéro existe ou non |
+| Force brute | 5 échecs pour un couple (numéro, adresse IP) → ce couple est bloqué 15 min ; 20 échecs sur un numéro toutes adresses confondues → numéro bloqué 15 min. Le titulaire n'est donc pas bloqué par un tiers depuis une autre adresse |
+| Limites de débit | Générales : 120 requêtes/min par IP (anonyme), 300/min par compte. Par action : connexion, SMS, inscription, changement de mot de passe et de coordonnées de versement (5/h), simulateur de paiement, clips. L'IP réelle est lue avec `NUM_PROXIES` (`apps.core.net.client_ip`) |
+| Mot de passe oublié | Code SMS à 6 chiffres, valable 10 min, 5 essais, 60 s entre deux envois ; au plus 3 codes par heure et 10 par jour par numéro, et 10 échecs de vérification par jour et par numéro (au-delà, `code_invalid` jusqu'au lendemain). Seule son empreinte est stockée. La réponse est identique que le numéro existe ou non |
+| Rafraîchissement | Usage unique garanti même en cas d'appels simultanés ; `refresh/` et `logout/` refusent (403 `origin_forbidden`) un en-tête `Origin` étranger à `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS`, `FRONTEND_URL` ou à l'hôte de l'API |
+| Coordonnées de versement | `current_password` obligatoire ; SMS d'alerte au titulaire après chaque changement |
+| Administration | Chemin configurable (`ADMIN_URL`, défaut `admin/`) ; 5 échecs de connexion par IP ou par identifiant → 429 pendant 15 min |
+| Documentation de l'API | `/api/schema/` et `/api/docs/` réservés au staff (session de l'administration) hors `DEBUG` |
+| Journaux | Hors `DEBUG`, le backend SMS console ne journalise ni le contenu ni le numéro complet ; `manage.py check` avertit (`agapy.W001`, `agapy.W002`) si SMS ou e-mails ne sont pas branchés |
 
 ### Points d'entrée
 
@@ -155,7 +162,7 @@ python manage.py send_quarterly_statements  # tous les 3 mois (ex. 0 9 1 1,4,7,1
 | POST | `/api/v1/auth/password/reset/` | `{reset_token, password}` | étape 3 |
 | POST | `/api/v1/accounts/signup/` | multipart (champs de `signupSchema` en snake_case + `photo`) → `{id, login, status, region}` | `SignupPage` |
 | GET / PATCH | `/api/v1/accounts/me/` | Compte connecté ; modification des infos publiques (JSON ou multipart pour la photo) | `ProfilePage`, `DashboardLayout` |
-| PATCH | `/api/v1/accounts/me/payout/` | Mobile money et/ou IBAN | `ProfilePage` |
+| PATCH | `/api/v1/accounts/me/payout/` | `{current_password, …}` mobile money et/ou IBAN | `ProfilePage` |
 
 Le détail des champs se trouve dans `/api/docs/`.
 
@@ -169,7 +176,8 @@ Le détail des champs se trouve dans `/api/docs/`.
 Le frontend choisit la traduction à partir de `codes`, sans dépendre du texte français.
 Principaux codes : `invalid_credentials`, `login_locked`, `session_expired`, `token_revoked`, `phone_invalid`,
 `phone_taken`, `password_format`, `password_incorrect`, `code_invalid`, `reset_token_invalid`, `required`,
-`future_date`, `payout_required`, `iban_invalid`, `terms_required`, `photo_size`, `not_an_artist`.
+`future_date`, `payout_required`, `iban_invalid`, `terms_required`, `photo_size`, `not_an_artist`,
+`origin_forbidden`, `throttled`.
 
 ### Conseils pour le branchement côté frontend
 

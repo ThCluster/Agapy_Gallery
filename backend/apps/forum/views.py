@@ -12,6 +12,7 @@ from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 
 from apps.accounts.models import ArtistStatus
 from apps.accounts.views import PublicView
+from apps.core.net import client_ip
 
 from .models import Category, Post, Report, Topic
 from .serializers import (
@@ -73,8 +74,10 @@ class ForumView:
     throttle_classes = [ForumWriteThrottle]
 
     def get_authenticators(self):
-        # self.request est encore la requête Django à ce stade
-        if self.request.method in SAFE_METHODS:
+        # self.request est encore la requête Django à ce stade ; il vaut None pendant la
+        # génération du schéma OpenAPI (drf-spectacular)
+        request = getattr(self, "request", None)
+        if request is not None and request.method in SAFE_METHODS:
             return []
         return super().get_authenticators()
 
@@ -184,6 +187,6 @@ class PostReportView(PublicView):
         s = ReportSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         Report.objects.create(post=post, reason=s.validated_data["reason"],
-                              ip_address=request.META.get("REMOTE_ADDR") or None)
+                              ip_address=client_ip(request) or None)
         return Response({"detail": "Merci, le message a été signalé à l'équipe AGAPY."},
                         status=status.HTTP_202_ACCEPTED)

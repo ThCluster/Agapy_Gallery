@@ -6,7 +6,9 @@
     "signup": {
       "checking": "Checking your payment…",
       "paymentFailed": "The account opening fee payment did not go through. Your registration is saved: you can retry the payment.",
-      "retryPayment": "Retry payment"
+      "retryPayment": "Retry payment",
+      "credentials": "Your password has been sent by SMS to your login number. You can change it at any time.",
+      "emailHint": "Contact address. Your password will be sent by SMS only."
     },
     "dashboard": {
       "loading": "Loading your space",
@@ -16,7 +18,7 @@
       },
       "pending": {
         "title": "Account awaiting activation",
-        "text": "Your space will open as soon as the account opening fee is paid. Your credentials will then be sent by SMS and email.",
+        "text": "Your space will open as soon as the account opening fee is paid. Your password will then be sent by SMS.",
         "action": "Complete my registration"
       },
       "excluded": {
@@ -50,6 +52,29 @@
       },
       "back": "Back to the site",
       "home": "Back to home"
+    },
+    "title": {
+      "login": "Log in",
+      "signup": "Sign up"
+    },
+    "social": {
+      "facebook": "Facebook",
+      "instagram": "Instagram",
+      "x": "X (Twitter)",
+      "tiktok": "TikTok",
+      "youtube": "YouTube",
+      "linkedin": "LinkedIn",
+      "website": "Website",
+      "other": "Link"
+    },
+    "payout": {
+      "currentPassword": "Current password",
+      "currentPasswordHint": "To protect your payouts, confirm with your current password.",
+      "countryReadOnly": "The country cannot be changed. Contact us if needed."
+    },
+    "newsletter": {
+      "confirm": "Confirm unsubscription",
+      "confirmText": "Click the button to stop receiving the AGAPY-GALLERY newsletter."
     }
   }
 }

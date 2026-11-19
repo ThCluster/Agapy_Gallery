@@ -3,7 +3,21 @@ import { z } from 'zod'
 import { AFRICA } from '@/features/auth/countries'
 import type { Region } from '@/lib/pricing'
 
-const EUROPE = ['FR', 'BE', 'CH', 'DE', 'ES', 'IT', 'GB', 'PT', 'NL', 'LU']
+/** Pays et territoires européens facturés en euros (même liste que backend/apps/core/regions.py) */
+const EUROPE = [
+  // Union européenne (27)
+  ...'AT BE BG HR CY CZ DK EE FI FR DE GR HU IE IT LV LT LU MT NL PL PT RO SK SI ES SE'.split(' '),
+  // Espace économique européen et AELE
+  ...'IS LI NO CH'.split(' '),
+  // Royaume-Uni et micro-États
+  ...'GB MC AD SM VA'.split(' '),
+  // Balkans
+  ...'AL BA ME MK RS XK'.split(' '),
+  // Europe de l'Est
+  ...'UA MD BY RU'.split(' '),
+  // Territoires européens rattachés
+  ...'GI FO GG JE IM AX SJ'.split(' '),
+]
 
 /** Zone tarifaire déduite du pays de l'artiste (10 000 F CFA, 30 € ou 35 $) */
 export function regionOf(country: string): Region {

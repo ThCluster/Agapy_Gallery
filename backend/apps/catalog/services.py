@@ -6,7 +6,8 @@ Les vues et l'administration appellent ces fonctions ; elles ne contiennent pas 
 import logging
 
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Count, IntegerField, OuterRef, Q, Subquery, Sum
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
@@ -14,6 +15,7 @@ from apps.accounts.models import ArtistProfile, ArtistStatus
 from apps.accounts.services import exclude_artist, red_list_artist
 from apps.core.pricing import quote
 from apps.notifications import services as notify
+from apps.payments.models import PaymentStatus
 
 from .models import Artwork, ArtworkStatus, Gallery
 
@@ -33,6 +35,23 @@ def visible_artists_q(prefix: str = "") -> Q:
 
 def public_artists():
     return ArtistProfile.objects.filter(visible_artists_q()).select_related("gallery")
+
+
+def with_audience(qs):
+    """
+    Annote les artistes : visit_total = visites réelles (VisitLog, gratuites et payantes),
+    view_total = somme des vues de leurs œuvres publiées.
+    """
+    from apps.payments.models import VisitLog
+
+    visits = (VisitLog.objects.filter(artist=OuterRef("pk")).order_by().values("artist")
+              .annotate(n=Count("pk")).values("n"))
+    views = (Artwork.objects.filter(artist=OuterRef("pk"), status=ArtworkStatus.PUBLISHED).order_by()
+             .values("artist").annotate(n=Sum("view_count")).values("n"))
+    return qs.annotate(
+        visit_total=Coalesce(Subquery(visits, output_field=IntegerField()), 0),
+        view_total=Coalesce(Subquery(views, output_field=IntegerField()), 0),
+    )
 
 
 def free_gallery_q(prefix: str = "") -> Q:
@@ -72,6 +91,15 @@ def prepare_new_artwork(artist: ArtistProfile, data: dict) -> dict:
     if not data.get("author_contact"):
         data["author_contact"] = " / ".join(filter(None, [artist.user.phone_display, artist.user.email]))
     return data
+
+
+def check_artwork_update(artwork: Artwork, changed: set[str]) -> None:
+    """
+    Avant modification : changer le titre ou l'image d'une œuvre publiée la renvoie en modération,
+    ce qui vaut une nouvelle publication (compte actif, hors liste rouge).
+    """
+    if artwork.status == ArtworkStatus.PUBLISHED and changed & REVIEWED_FIELDS:
+        check_can_publish(artwork.artist)
 
 
 def apply_artwork_changes(artwork: Artwork, changed: set[str]) -> None:
@@ -147,16 +175,37 @@ def submit_artwork(artwork: Artwork, method: str | None, user) -> dict:
     if not method:
         raise ValidationError({"method": ["Choisissez un moyen de paiement."]}, code="required")
 
-    artwork.status = ArtworkStatus.AWAITING_PAYMENT
-    artwork.save(update_fields=["status", "updated_at"])
-    payment = payments.create_payment(
-        purpose="publication", method=method, quote=quote("publication", artist.region),
-        region=artist.region, artist=artist, payer_user=user, target=artwork,
-    )
+    # Œuvre déjà en attente du paiement : on reprend le paiement en cours plutôt que d'en créer un autre
+    payment = None
+    if artwork.status == ArtworkStatus.AWAITING_PAYMENT:
+        for pending in _pending_publication_payments(artwork):
+            fresh = pending.created_at >= timezone.now() - payments.SIMULATION_WINDOW
+            if payment is None and pending.method == method and fresh:
+                payment = pending
+            else:  # autre moyen de paiement choisi : l'ancien paiement est annulé
+                payments.fail_payment(pending, "Remplacé par un nouveau paiement", status=PaymentStatus.CANCELLED)
+    if payment is None:
+        artwork.status = ArtworkStatus.AWAITING_PAYMENT
+        artwork.save(update_fields=["status", "updated_at"])
+        payment = payments.create_payment(
+            purpose="publication", method=method, quote=quote("publication", artist.region),
+            region=artist.region, artist=artist, payer_user=user, target=artwork,
+        )
     action = payments.start_payment(payment)  # un paiement immédiat (Compte d'Avoir) confirme tout de suite
     artwork.refresh_from_db()
     payment.refresh_from_db()
     return {"artwork": artwork, "payment": payment, "action": action, "free_publication": False}
+
+
+def _pending_publication_payments(artwork: Artwork):
+    from django.contrib.contenttypes.models import ContentType
+
+    from apps.payments.models import Payment
+
+    return list(Payment.objects.select_for_update().filter(
+        purpose="publication", status=PaymentStatus.PENDING, artist=artwork.artist,
+        target_type=ContentType.objects.get_for_model(Artwork), target_id=artwork.pk,
+    ).order_by("-created_at"))
 
 
 def publication_paid(payment) -> None:

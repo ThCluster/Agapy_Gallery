@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ArrowLeft, CheckCircle2, ImagePlus, Lock, ShieldAlert } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { ArrowLeft, CheckCircle2, ImagePlus, Lock, Music, ShieldAlert, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
@@ -10,6 +10,7 @@ import { inputClass } from '@/features/signup/inputClass'
 import { submitStarted, useCreateArtwork, useMyGallery, useQuote, useSubmitArtwork, useSubscription } from '@/api/artistSpace'
 import { followPaymentAction } from '@/api/payments'
 import { ApiError, errorMessage, toNumber } from '@/lib/api'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 import { useAuth } from '@/stores/auth'
 import { FRAME_CLASS, FRAME_SWATCH, FRAMES, type FrameId } from '../frames'
 import { PayMethods, type PayMethod } from '../PayMethods'
@@ -28,7 +29,6 @@ const schema = z.object({
   copyrightContact: z.string().trim().min(1, 'signup.errors.required'),
   file: z.custom<FileList | undefined>().refine((f) => !!f?.[0], 'dashboard.publish.errors.file').refine((f) => !f?.[0] || f[0].type.startsWith('image/'), 'signup.errors.photoType').refine((f) => !f?.[0] || f[0].size <= 10 * 1024 * 1024, 'dashboard.publish.errors.fileSize'),
   frame: z.enum(['black', 'wood', 'gold', 'white', 'none']),
-  free: z.boolean(),
   certify: z.boolean().refine((v) => v, 'dashboard.publish.errors.certify'),
 })
 type PublishForm = z.infer<typeof schema>
@@ -52,6 +52,52 @@ export function PublishPage() {
   const [method, setMethod] = useState<PayMethod>('momo')
   const [error, setError] = useState<string | null>(null)
   const submitted = useRef(false)
+  useDocumentTitle(t('dashboard.publish.title'))
+  // Extrait facultatif (30 s au plus), durée lue dans le navigateur
+  const [excerpt, setExcerpt] = useState<{ file: File; seconds: number } | null>(null)
+  const [excerptError, setExcerptError] = useState<string | null>(null)
+  const [excerptChecking, setExcerptChecking] = useState(false)
+  const excerptInput = useRef<HTMLInputElement>(null)
+  const clearExcerpt = () => {
+    setExcerpt(null)
+    if (excerptInput.current) excerptInput.current.value = ''
+  }
+  const onExcerpt = (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]
+    setExcerptError(null)
+    setExcerpt(null)
+    if (!f) return
+    if (!f.type.startsWith('audio/') && !f.type.startsWith('video/')) {
+      setExcerptError(t('dashboard.publish.excerpt.type'))
+      clearExcerpt()
+      return
+    }
+    if (f.size > 20 * 1024 * 1024) {
+      setExcerptError(t('dashboard.publish.excerpt.size'))
+      clearExcerpt()
+      return
+    }
+    // Élément audio / vidéo caché, juste pour lire la durée
+    const url = URL.createObjectURL(f)
+    const media = document.createElement(f.type.startsWith('video/') ? 'video' : 'audio')
+    media.preload = 'metadata'
+    setExcerptChecking(true)
+    const done = (seconds: number | null) => {
+      URL.revokeObjectURL(url)
+      media.removeAttribute('src')
+      setExcerptChecking(false)
+      if (seconds === null || !Number.isFinite(seconds)) {
+        setExcerptError(t('dashboard.publish.excerpt.unreadable'))
+        clearExcerpt()
+      } else if (seconds > 30.5) {
+        setExcerptError(t('dashboard.publish.excerpt.tooLong', { seconds: Math.round(seconds) }))
+        clearExcerpt()
+      } else setExcerpt({ file: f, seconds: Math.max(1, Math.min(30, Math.round(seconds))) })
+    }
+    media.onloadedmetadata = () => done(media.duration)
+    media.onerror = () => done(null)
+    media.src = url
+  }
   /** Œuvre déjà créée (brouillon) : un nouvel essai ne la recrée pas */
   const createdSlug = useRef<string | null>(null)
 
@@ -70,7 +116,6 @@ export function PublishPage() {
       copyrightContact: '',
       file: undefined,
       frame: 'black',
-      free: false,
       certify: false,
     },
   })
@@ -123,7 +168,8 @@ export function PublishPage() {
           width_cm: v.width,
           image: v.file?.[0],
           frame: v.frame as FrameId,
-          is_free: v.free,
+          excerpt: excerpt?.file,
+          excerpt_duration: excerpt?.seconds,
           author_name: v.authorName,
           author_contact: v.authorContact,
           copyright_office: v.copyrightOffice,
@@ -246,6 +292,31 @@ export function PublishPage() {
                 <input id="file" type="file" accept="image/*" {...register('file')} className="sr-only" />
               </Field>
 
+              {/* Extrait audio ou vidéo facultatif : 30 secondes au plus */}
+              <div className="mt-6">
+                <p className="mb-2 text-sm font-medium text-brand-graphite dark:text-white">{t('dashboard.publish.excerpt.label')}</p>
+                <label htmlFor="excerpt" className={`flex cursor-pointer items-center gap-4 rounded-2xl border border-dashed p-4 hover:border-brand-green hover:bg-brand-mist dark:hover:bg-night-field ${excerptError ? 'border-rose-400' : 'border-brand-graphite/20'}`}>
+                  <Music className="size-7 shrink-0 text-brand-green" />
+                  <span className="min-w-0 flex-1 text-sm">
+                    <span className="block truncate font-medium text-brand-graphite dark:text-white">
+                      {excerpt ? `${excerpt.file.name} · ${excerpt.seconds} s` : excerptChecking ? t('dashboard.publish.excerpt.checking') : t('dashboard.publish.excerpt.choose')}
+                    </span>
+                    <span className="block text-xs text-gray-500">{t('dashboard.publish.excerpt.hint')}</span>
+                  </span>
+                </label>
+                <input ref={excerptInput} id="excerpt" type="file" accept="audio/*,video/*" onChange={onExcerpt} aria-invalid={!!excerptError} aria-describedby={excerptError ? 'excerpt-error' : undefined} className="sr-only" />
+                {excerpt && (
+                  <button type="button" onClick={clearExcerpt} className="mt-2 inline-flex items-center gap-1 text-xs text-gray-500 hover:text-rose-600">
+                    <X className="size-3.5" /> {t('dashboard.publish.excerpt.remove')}
+                  </button>
+                )}
+                {excerptError && (
+                  <p id="excerpt-error" role="alert" className="mt-2 text-xs text-rose-600">
+                    {excerptError}
+                  </p>
+                )}
+              </div>
+
               <p className="mt-6 mb-3 text-sm font-medium text-brand-graphite dark:text-white">{t('dashboard.publish.fields.frame')}</p>
               <div role="radiogroup" aria-label={t('dashboard.publish.fields.frame')} className="flex flex-wrap gap-2">
                 {FRAMES.map((f) => (
@@ -263,13 +334,6 @@ export function PublishPage() {
                 ))}
               </div>
 
-              <label className="mt-6 flex cursor-pointer items-start gap-3 text-sm text-brand-ink dark:text-slate-300">
-                <input type="checkbox" {...register('free')} className="mt-0.5 size-5 accent-brand-green" />
-                <span>
-                  <span className="font-medium">{t('dashboard.publish.fields.free')}</span>
-                  <span className="block text-xs text-gray-500">{t('dashboard.publish.fields.freeHint')}</span>
-                </span>
-              </label>
             </fieldset>
 
             <label className="flex cursor-pointer items-start gap-3 rounded-2xl bg-brand-mist p-4 text-sm text-brand-ink dark:bg-night-card dark:text-slate-300">

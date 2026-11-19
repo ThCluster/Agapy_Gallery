@@ -8,6 +8,7 @@ import { errorMessage } from '@/lib/api'
 import { formatSize } from '@/lib/format'
 import { displayPrice, PRICES, useRegion } from '@/lib/pricing'
 import { closest, normalize } from '@/lib/search'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 type Mode = 'artist' | 'artwork'
 
@@ -18,6 +19,7 @@ type Mode = 'artist' | 'artwork'
  */
 export function SearchPage() {
   const { t } = useTranslation()
+  useDocumentTitle(t('search.page.title'))
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const mode: Mode = params.get('mode') === 'artwork' ? 'artwork' : 'artist'

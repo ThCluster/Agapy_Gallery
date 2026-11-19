@@ -76,10 +76,15 @@ class ArtworkAdmin(admin.ModelAdmin):
     @admin.action(description="Valider et publier (prévient l'artiste)")
     def approve(self, request, queryset):
         n = 0
-        for artwork in queryset.exclude(status__in=[ArtworkStatus.PUBLISHED, ArtworkStatus.REMOVED]).select_related("artist__user"):
+        # Seules les œuvres en attente de validation (paiement reçu ou publication gratuite) sont publiables
+        for artwork in queryset.filter(status=ArtworkStatus.PENDING_REVIEW).select_related("artist__user"):
             services.approve_artwork(artwork)
             n += 1
         self.message_user(request, f"{n} œuvre(s) publiée(s).", messages.SUCCESS)
+        skipped = queryset.exclude(status=ArtworkStatus.PENDING_REVIEW).count()
+        if skipped:
+            self.message_user(request, f"{skipped} œuvre(s) ignorée(s) : elles ne sont pas en attente de validation.",
+                              messages.WARNING)
 
     def _with_reason(self, request, queryset, action, title, apply):
         """Affiche un formulaire pour saisir le motif, puis applique l'action à chaque œuvre."""

@@ -6,8 +6,8 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router'
 import { api, toFormData, type Page } from '@/lib/api'
-import type { FrameId } from '@/stores/artistSpace'
-import type { PaymentMethod, PaymentStarted, PaymentStatus, PaymentSummary } from './payments'
+import type { FrameId } from '@/features/dashboard/frames'
+import { getPayment, type PaymentMethod, type PaymentStarted, type PaymentStatus, type PaymentSummary } from './payments'
 
 export type { FrameId }
 
@@ -55,6 +55,10 @@ export interface ArtworkInput {
   height_cm?: string | number
   width_cm?: string | number
   image?: File
+  /** Extrait audio ou vidéo de 30 s au plus (cahier des charges, p. 18) */
+  excerpt?: File
+  /** Durée de l'extrait, en secondes entières */
+  excerpt_duration?: number
   frame?: FrameId
   author_name?: string
   author_contact?: string
@@ -130,7 +134,7 @@ export function useMyArtworks() {
 }
 
 function artworkBody(input: ArtworkInput): FormData | ArtworkInput {
-  return input.image ? toFormData(input as Record<string, unknown>) : input
+  return input.image || input.excerpt ? toFormData(input as Record<string, unknown>) : input
 }
 
 export function useCreateArtwork() {
@@ -247,21 +251,36 @@ export function useTopup() {
 }
 
 // --- Retour d'un paiement ------------------------------------------------------------------
+const RETURN_POLL_MS = 2_000
+const RETURN_POLL_FOR_MS = 60_000
+
 /**
- * Lit ?payment=<référence>&status=<statut> au retour de la page de paiement, invalide les
- * données de l'espace artiste et renvoie le statut (null s'il n'y a pas de retour de paiement).
+ * Retour de la page de paiement (?payment=<référence>) : le statut affiché est celui renvoyé par
+ * l'API (GET /payments/<réf>/), jamais le ?status= de l'URL. Un paiement en attente est
+ * réinterrogé toutes les 2 s pendant 60 s ; les données de l'espace artiste sont rechargées
+ * dès qu'il est terminé. Renvoie null s'il n'y a pas de retour de paiement.
  */
-export function usePaymentReturn(): { reference: string; status: PaymentStatus } | null {
+export function usePaymentReturn(): { reference: string; status: PaymentStatus | 'checking' } | null {
   const [params] = useSearchParams()
   const qc = useQueryClient()
   const reference = params.get('payment')
-  const status = params.get('status') as PaymentStatus | null
+  const query = useQuery({
+    queryKey: ['payment', reference],
+    queryFn: () => getPayment(reference ?? ''),
+    enabled: !!reference,
+    retry: false,
+    refetchInterval: (q) => (q.state.data?.status === 'pending' && q.state.dataUpdateCount < RETURN_POLL_FOR_MS / RETURN_POLL_MS ? RETURN_POLL_MS : false),
+  })
+  const status = query.data?.status
   const done = useRef<string | null>(null)
   useEffect(() => {
-    if (reference && done.current !== reference) {
-      done.current = reference
-      void qc.invalidateQueries({ queryKey: artistKeys.all })
-    }
-  }, [reference, qc])
-  return reference && status ? { reference, status } : null
+    if (!reference || !status || status === 'pending') return
+    const key = `${reference}:${status}`
+    if (done.current === key) return
+    done.current = key
+    void qc.invalidateQueries({ queryKey: artistKeys.all })
+  }, [reference, status, qc])
+  if (!reference) return null
+  if (query.isError) return { reference, status: 'failed' }
+  return { reference, status: status ?? 'checking' }
 }

@@ -14,6 +14,7 @@ from django.db.models import F
 from django.utils import timezone
 
 from apps.notifications.services import send_email, send_sms
+from apps.notifications.sms import mask_phone
 
 from .models import ArtistProfile, ArtistStatus, PasswordResetCode, User
 
@@ -26,27 +27,60 @@ logger = logging.getLogger("agapy.accounts")
 
 
 # ---------------------------------------------------------------------------
-# Blocage après trop d'échecs de connexion (par numéro, en plus de la limite par adresse IP)
+# Compteurs dans le cache (fenêtre fixe qui commence au premier événement)
 # ---------------------------------------------------------------------------
-def _failures_key(phone: str) -> str:
-    return f"login-failures:{phone}"
+def incr_counter(key: str, timeout: int | None) -> int:
+    if cache.add(key, 1, timeout=timeout):
+        return 1
+    try:
+        return cache.incr(key)
+    except ValueError:  # la clé a expiré entre-temps
+        cache.set(key, 1, timeout=timeout)
+        return 1
 
 
-def is_login_locked(phone: str) -> bool:
-    return cache.get(_failures_key(phone), 0) >= settings.LOGIN_MAX_FAILURES
+# ---------------------------------------------------------------------------
+# Blocage après trop d'échecs de connexion :
+# - par couple (numéro, adresse IP) : LOGIN_MAX_FAILURES échecs bloquent ce couple ;
+# - par numéro, toutes adresses confondues : seuil plus élevé (LOGIN_GLOBAL_MAX_FAILURES).
+# Un attaquant ne peut plus bloquer le vrai titulaire depuis une autre adresse, sauf à
+# dépasser le seuil global.
+# ---------------------------------------------------------------------------
+def _login_generation(phone: str) -> int:
+    # Incrémentée par reset_all_login_failures() : invalide d'un coup tous les compteurs par IP
+    return cache.get(f"login-gen:{phone}", 0)
 
 
-def record_login_failure(phone: str) -> None:
-    key = _failures_key(phone)
-    if not cache.add(key, 1, timeout=int(settings.LOGIN_LOCKOUT.total_seconds())):
-        try:
-            cache.incr(key)
-        except ValueError:  # la clé a expiré entre-temps
-            cache.set(key, 1, timeout=int(settings.LOGIN_LOCKOUT.total_seconds()))
+def _pair_key(phone: str, ip: str) -> str:
+    return f"login-failures:{phone}:{_login_generation(phone)}:{ip or '-'}"
 
 
-def reset_login_failures(phone: str) -> None:
-    cache.delete(_failures_key(phone))
+def _global_key(phone: str) -> str:
+    return f"login-failures-all:{phone}"
+
+
+def is_login_locked(phone: str, ip: str = "") -> bool:
+    return (
+        cache.get(_pair_key(phone, ip), 0) >= settings.LOGIN_MAX_FAILURES
+        or cache.get(_global_key(phone), 0) >= settings.LOGIN_GLOBAL_MAX_FAILURES
+    )
+
+
+def record_login_failure(phone: str, ip: str = "") -> None:
+    timeout = int(settings.LOGIN_LOCKOUT.total_seconds())
+    incr_counter(_pair_key(phone, ip), timeout)
+    incr_counter(_global_key(phone), timeout)
+
+
+def reset_login_failures(phone: str, ip: str = "") -> None:
+    """Connexion réussie depuis `ip`."""
+    cache.delete_many([_pair_key(phone, ip), _global_key(phone)])
+
+
+def reset_all_login_failures(phone: str) -> None:
+    """Mot de passe réinitialisé : plus aucun blocage pour ce numéro, quelle que soit l'adresse."""
+    incr_counter(f"login-gen:{phone}", timeout=None)
+    cache.delete(_global_key(phone))
 
 
 # ---------------------------------------------------------------------------
@@ -69,7 +103,7 @@ def activate_account(profile: ArtistProfile) -> None:
     """
     À appeler quand le paiement des frais d'ouverture est confirmé (module paiements,
     ou action manuelle dans l'administration). Crée le mot de passe et envoie les
-    identifiants par SMS et par e-mail (cahier des charges p. 7).
+    identifiants par SMS (cahier des charges p. 7) ; l'e-mail prévient sans le mot de passe.
     """
     profile = ArtistProfile.objects.select_for_update().select_related("user").get(pk=profile.pk)
     if profile.status != ArtistStatus.PENDING_PAYMENT:
@@ -89,12 +123,18 @@ def activate_account(profile: ArtistProfile) -> None:
         f"Identifiant : {user.phone_display}\nMot de passe : {password}\n"
         f"Connexion : {login_url}"
     )
+    # Le mot de passe part UNIQUEMENT par SMS : le numéro de téléphone est l'identité du compte.
+    # L'e-mail d'une inscription en attente peut être remplacé par quiconque connaît le numéro
+    # (inscription recommencée) : il ne reçoit donc jamais le mot de passe.
+    email_body = (
+        f"Bienvenue sur AGAPY-GALLERY, {profile.display_name} !\n\n"
+        "Votre compte artiste est activé. Vos identifiants de connexion ont été envoyés par SMS "
+        f"au {mask_phone(user.phone)}.\n"
+        f"Connexion : {login_url}\n\n"
+        "Pensez à changer votre mot de passe depuis votre espace artiste."
+    )
     transaction.on_commit(lambda: send_sms(user.phone, message))
-    transaction.on_commit(lambda: send_email(
-        user.email,
-        "Vos identifiants AGAPY-GALLERY",
-        f"{message}\n\nPensez à changer votre mot de passe depuis votre espace artiste.",
-    ))
+    transaction.on_commit(lambda: send_email(user.email, "Votre compte AGAPY-GALLERY est activé", email_body))
     logger.info("Compte artiste activé : %s", profile.slug)
 
 
@@ -127,6 +167,14 @@ def request_reset_code(phone: str) -> None:
     last = user.reset_codes.first()
     if last and now - last.created_at < settings.PASSWORD_RESET_CODE_COOLDOWN:
         return  # un code vient déjà d'être envoyé
+    # Plafonds par numéro (coût des SMS, harcèlement du titulaire) ; la réponse de l'API ne change pas
+    hour_key, day_key = f"reset-sent-h:{phone}", f"reset-sent-d:{phone}"
+    if (cache.get(hour_key, 0) >= settings.PASSWORD_RESET_CODES_PER_HOUR
+            or cache.get(day_key, 0) >= settings.PASSWORD_RESET_CODES_PER_DAY):
+        logger.warning("Plafond de codes de réinitialisation atteint pour %s", mask_phone(phone))
+        return
+    incr_counter(hour_key, 3600)
+    incr_counter(day_key, 24 * 3600)
 
     code = f"{secrets.randbelow(1_000_000):06d}"
     with transaction.atomic():
@@ -144,17 +192,26 @@ def request_reset_code(phone: str) -> None:
 def verify_reset_code(phone: str, code: str) -> str:
     """Vérifie le code et renvoie un jeton de réinitialisation à usage unique."""
     invalid = ResetError("code_invalid", "Code incorrect ou expiré.")
+    # Échecs cumulés par numéro et par jour, tous codes confondus : sans cela, redemander un code
+    # remettrait le nombre d'essais à zéro et permettrait de deviner un code à la longue.
+    failures_key = f"reset-verify-failures:{phone}"
+    day = 24 * 3600
+    if cache.get(failures_key, 0) >= settings.PASSWORD_RESET_VERIFY_MAX_FAILURES_PER_DAY:
+        raise invalid
     user = User.objects.filter(phone=phone, is_active=True).first()
     if user is None:
+        incr_counter(failures_key, day)
         raise invalid
     entry = (
         user.reset_codes.filter(used_at__isnull=True, verified_at__isnull=True, expires_at__gt=timezone.now())
         .first()
     )
     if entry is None or entry.attempts >= settings.PASSWORD_RESET_CODE_MAX_ATTEMPTS:
+        incr_counter(failures_key, day)
         raise invalid
     if not hmac.compare_digest(entry.code_hash, _hash_code(user.pk, code)):
         PasswordResetCode.objects.filter(pk=entry.pk).update(attempts=F("attempts") + 1)
+        incr_counter(failures_key, day)
         raise invalid
 
     entry.verified_at = timezone.now()
@@ -185,7 +242,7 @@ def reset_password(user: User, entry: PasswordResetCode, password: str) -> None:
     entry.used_at = timezone.now()
     entry.save(update_fields=["used_at"])
     revoke_all_tokens(user)
-    reset_login_failures(user.phone)
+    reset_all_login_failures(user.phone)
 
 
 @transaction.atomic
@@ -193,6 +250,15 @@ def change_password(user: User, password: str) -> None:
     user.set_password(password)
     user.save(update_fields=["password"])
     revoke_all_tokens(user)
+
+
+def notify_payout_changed(user: User) -> None:
+    """Alerte par SMS au titulaire du numéro : un détournement des gains ne passe pas inaperçu."""
+    transaction.on_commit(lambda: send_sms(
+        user.phone,
+        "AGAPY-GALLERY : vos coordonnées de versement ont été modifiées. Si vous n'êtes pas à "
+        "l'origine de ce changement, changez votre mot de passe et contactez-nous.",
+    ))
 
 
 # ---------------------------------------------------------------------------

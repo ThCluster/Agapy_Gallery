@@ -5,6 +5,7 @@ import { Link } from 'react-router'
 import { useArtists } from '@/api/catalog'
 import { Img } from '@/components/ui/Img'
 import { errorMessage } from '@/lib/api'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 const FILTERS = ['all', 'peinture', 'photographie', 'sculpture', 'free'] as const
 type Filter = (typeof FILTERS)[number]
@@ -12,6 +13,7 @@ type Filter = (typeof FILTERS)[number]
 /** Liste de tous les artistes, avec filtre par discipline et recherche par nom. */
 export function ArtistsPage() {
   const { t } = useTranslation()
+  useDocumentTitle(t('artists.title'))
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)

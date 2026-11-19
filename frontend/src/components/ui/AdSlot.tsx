@@ -69,11 +69,48 @@ export function AdSlot({ format, index = 0, className = '' }: { format: AdFormat
   )
 }
 
+/** Lien publicitaire sûr : http(s) uniquement */
+function safeLink(raw: string): string | undefined {
+  try {
+    const url = new URL(raw, window.location.origin)
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : undefined
+  } catch {
+    return undefined
+  }
+}
+
 /**
- * Habillage de page : deux skyscrapers 160 × 600 qui restent visibles de chaque côté
- * du contenu, uniquement sur les très grands écrans (assez de place sans gêner la lecture).
+ * Habillage de site (cahier des charges, p. 15) : la campagne « site_skin » en cours habille les
+ * deux côtés de la page (une seule image, fixe, visible de part et d'autre du contenu). Sans
+ * campagne : deux skyscrapers 160 × 600. Uniquement sur les très grands écrans.
  */
 export function PageSkin() {
+  const { t } = useTranslation()
+  const { data: skins } = useAds('site_skin')
+  const skin = skins?.[0]
+
+  if (skin) {
+    const href = safeLink(skin.link_url)
+    const style = { backgroundImage: `url("${encodeURI(skin.image)}")`, backgroundAttachment: 'fixed', backgroundSize: 'cover', backgroundPosition: 'top center' }
+    const side = 'fixed top-0 bottom-0 z-10 hidden w-[calc((100vw-1360px)/2)] min-[1720px]:block'
+    return (
+      <>
+        {(['left-0', 'right-0'] as const).map((pos) => (
+          <a
+            key={pos}
+            href={href ?? '/publicite'}
+            target={href ? '_blank' : undefined}
+            rel="sponsored noopener noreferrer"
+            title={skin.advertiser}
+            aria-label={`${t('ads.label')} · ${skin.alt_text || skin.advertiser}`}
+            className={`${side} ${pos}`}
+            style={style}
+          />
+        ))}
+      </>
+    )
+  }
+
   return (
     <div aria-hidden={false} className="pointer-events-none fixed inset-x-0 top-28 z-10 hidden min-[1720px]:block">
       <div className="mx-auto flex max-w-[1680px] justify-between px-4">

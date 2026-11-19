@@ -22,16 +22,18 @@
         "card": "Carte bancaire",
         "wallet": "Compte d’Avoir"
       },
-      "successQueue": "Votre clip est payé. Il occupe la position n° {{position}} dans la file d’attente et sera diffusé 24 heures en boucle sur l’accueil.",
-      "successText": "Votre clip est payé. Il sera diffusé 24 heures en boucle sur l’accueil dès qu’une place se libère.",
-      "paymentFailed": "Le paiement n’a pas abouti : votre clip n’a pas été mis en diffusion. Vous pouvez réessayer."
+      "successQueue": "Votre clip est payé. L’équipe AGAPY le vérifie avant diffusion ; il occupe la position n° {{position}} dans la file d’attente et sera ensuite diffusé 24 heures en boucle sur l’accueil.",
+      "successText": "Votre clip est payé. L’équipe AGAPY le vérifie avant diffusion ; il sera ensuite diffusé 24 heures en boucle sur l’accueil dès qu’une place se libère.",
+      "paymentFailed": "Le paiement n’a pas abouti : votre clip n’a pas été mis en diffusion. Vous pouvez réessayer.",
+      "paymentPending": "Paiement en cours de confirmation… Cette page se met à jour automatiquement."
     },
     "tv": {
       "eyebrow": "AGAPY TV",
       "title": "La TV en ligne",
       "offAir": "Aucune émission en direct pour le moment.",
       "upcoming": "Prochaines émissions",
-      "none": "Aucune émission programmée."
+      "none": "Aucune émission programmée.",
+      "watch": "Regarder le direct"
     },
     "forum": {
       "loginToPost": "Se connecter pour publier",

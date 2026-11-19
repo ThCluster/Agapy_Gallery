@@ -11,6 +11,7 @@ import { StepCivility, StepContact, StepIdentity, StepPayment, StepPayout } from
 import { signup, startSignupPayment } from '@/api/accounts'
 import { followPaymentAction, getPayment } from '@/api/payments'
 import { ApiError, errorMessage } from '@/lib/api'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 const STEPS = ['civility', 'identity', 'contact', 'payout', 'payment'] as const
 const DRAFT_KEY = 'agapy-signup-draft'
@@ -56,14 +57,21 @@ function toApi(data: SignupForm): Record<string, unknown> {
   return out
 }
 
-/** Brouillon enregistré dans le navigateur (hors photo), pour ne rien perdre en cas de rechargement */
+/** Champs sensibles jamais gardés dans le brouillon (sessionStorage est lisible par tout script de la page) */
+const DRAFT_EXCLUDED = new Set(['photo', 'acceptTerms', 'iban', 'momoNumber', 'password', 'birthDate'])
+
+function draftOf(values: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(values).filter(([k]) => !DRAFT_EXCLUDED.has(k)))
+}
+
+/** Brouillon enregistré dans le navigateur (hors photo et données sensibles), pour ne rien perdre en cas de rechargement */
 function loadDraft(): SignupForm {
   try {
     const raw = sessionStorage.getItem(DRAFT_KEY)
     if (raw)
       return {
         ...DEFAULT_VALUES,
-        ...JSON.parse(raw),
+        ...draftOf(JSON.parse(raw) as Record<string, unknown>),
         photo: undefined,
         acceptTerms: false,
       }
@@ -75,6 +83,7 @@ function loadDraft(): SignupForm {
 
 export function SignupPage() {
   const { t } = useTranslation()
+  useDocumentTitle(t('auth.title.signup'))
   const [step, setStep] = useState(0)
   const [done, setDone] = useState<string | null>(null)
   const [params, setParams] = useSearchParams()
@@ -99,8 +108,7 @@ export function SignupPage() {
         formState: { values: true },
         callback: ({ values }) => {
           try {
-            const { photo: _photo, acceptTerms: _terms, ...rest } = values
-            sessionStorage.setItem(DRAFT_KEY, JSON.stringify(rest))
+            sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draftOf(values as Record<string, unknown>)))
           } catch {
             // stockage indisponible : pas de brouillon
           }
@@ -360,7 +368,7 @@ function SignupDone({ login }: { login: string }) {
           <Mail className="size-5 text-brand-green" />
           <p className="mt-3 text-sm text-gray-500">{t('signup.done.login')}</p>
           {login && <p className="mt-1 text-lg font-semibold text-brand-graphite dark:text-white">{login}</p>}
-          <p className="mt-2 text-xs text-gray-500">{t('signup.done.credentials')}</p>
+          <p className="mt-2 text-xs text-gray-500">{t('auth.signup.credentials')}</p>
         </div>
         <div className="rounded-3xl border border-brand-green/10 bg-brand-mist p-5 dark:border-white/10 dark:bg-night-card">
           <Wallet className="size-5 text-brand-orange" />

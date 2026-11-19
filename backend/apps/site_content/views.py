@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 
 from apps.accounts.views import PublicView
+from apps.core.net import client_ip
 
 from . import services
 from .models import Page, Partner
@@ -42,7 +43,7 @@ class ContactView(PublicView):
     def post(self, request):
         s = ContactSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        services.submit_contact(ip_address=request.META.get("REMOTE_ADDR") or None, **s.validated_data)
+        services.submit_contact(ip_address=client_ip(request) or None, **s.validated_data)
         return Response({"detail": "Votre message a bien été envoyé."}, status=status.HTTP_201_CREATED)
 
 

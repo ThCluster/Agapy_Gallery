@@ -3,7 +3,7 @@ import type { PhotoKey } from '@/mocks/photos'
 /**
  * Fiche de villa : tout ce que l'artiste règle depuis son espace « Ma villa ».
  * Le moteur 3D est le même pour tous ; seule cette fiche change d'une villa à l'autre.
- * Elle sera servie par Django : GET /api/villas/<artistId>/
+ * Elle est construite à partir du profil public de l'artiste (GET /catalog/artists/<slug>/).
  */
 
 /** Modèles d'architecture disponibles (d'autres viendront : atelier, patio…) */
@@ -12,7 +12,8 @@ export type TemplateId = 'lagune'
 /** Murs sur lesquels on peut accrocher */
 export type Wall = 'back' | 'front' | 'left'
 
-export type FrameKind = 'walnut' | 'gold' | 'black' | 'white'
+/** Cadres : mêmes identifiants que le catalogue (GET /catalog/frames/) */
+export type FrameKind = 'wood' | 'gold' | 'black' | 'white' | 'none'
 
 /** Teintes de murs proposées : toutes claires, à la demande du client */
 export type WallTone = 'blanc' | 'lin' | 'argile' | 'sauge'
@@ -30,7 +31,10 @@ export interface Hanging {
   technique: string
   /** Dimensions réelles en cm : hauteur × largeur */
   size: [number, number]
-  photo: PhotoKey
+  /** Image de l'œuvre (URL servie par l'API, ex. /media/…) */
+  image?: string
+  /** Photo d'exemple (données de démonstration, quand l'API ne répond pas) */
+  photo?: PhotoKey
   frame: FrameKind
   /** Commentaire de l'artiste, lu par son guide (texte généré s'il est vide) */
   comment?: string
@@ -52,4 +56,6 @@ export interface VillaConfig {
   goodbye?: string
   /** Villa générée automatiquement à partir des œuvres publiées */
   auto?: boolean
+  /** Galerie en visite gratuite (sinon un droit de visite est exigé) */
+  free?: boolean
 }

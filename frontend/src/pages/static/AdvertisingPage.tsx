@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type Rea
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router'
 import { followPaymentAction, type PaymentMethod } from '@/api/payments'
-import { orderClip, useLiveTv } from '@/api/promotions'
+import { orderClip, useLiveTv, usePaymentStatus } from '@/api/promotions'
 import { useSitePage } from '@/api/site'
 import { AdSlot } from '@/components/ui/AdSlot'
 import { Img } from '@/components/ui/Img'
@@ -12,6 +12,7 @@ import { inputClass } from '@/features/signup/inputClass'
 import { errorMessage } from '@/lib/api'
 import { formatXOF } from '@/lib/format'
 import { CLIP_PRICE_XOF } from '@/lib/pricing'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 import { useAuth } from '@/stores/auth'
 import { apiFieldErrors } from './formErrors'
 import { RichText } from './RichText'
@@ -27,6 +28,7 @@ interface Stat {
 /** Publicité sur AGAPY : formats proposés et réservation d’un clip vidéo de 30 s sur l’accueil. */
 export function AdvertisingPage() {
   const { t, i18n } = useTranslation()
+  useDocumentTitle(`${t('static.ads.titleStart')} ${t('static.ads.titleEnd')}`)
   // Texte de présentation publié depuis l'administration (facultatif)
   const { data: remote } = useSitePage('advertising', i18n.resolvedLanguage)
   const stats = t('static.ads.stats', { returnObjects: true }) as Stat[]
@@ -250,8 +252,10 @@ function ClipForm() {
   // Numéro de la dernière vérification : ignore le résultat d’une vidéo remplacée entre-temps
   const checkId = useRef(0)
 
-  // Retour de la page de paiement : ?payment=<référence>&status=<statut>
-  const returned = params.get('payment') ? params.get('status') : null
+  // Retour de la page de paiement (?payment=<référence>) : statut réel lu auprès de l'API
+  const returnRef = params.get('payment')
+  const payment = usePaymentStatus(returnRef)
+  const returned = returnRef ? (payment.isError ? 'failed' : (payment.data?.status ?? 'pending')) : null
 
   // Libère l’adresse temporaire de la vidéo quand elle est remplacée ou quand on quitte la page
   useEffect(() => {
@@ -394,7 +398,7 @@ function ClipForm() {
     setPosition(null)
     setStatus('idle')
     if (fileInput.current) fileInput.current.value = ''
-    if (returned) {
+    if (returnRef) {
       const next = new URLSearchParams(params)
       next.delete('payment')
       next.delete('status')
@@ -421,7 +425,8 @@ function ClipForm() {
   )
 
   const success = status === 'done' || returned === 'succeeded'
-  const failed = !success && returned !== null && status === 'idle'
+  const waiting = !success && returned === 'pending' && status === 'idle'
+  const failed = !success && !waiting && returned !== null && status === 'idle'
 
   return (
     <section aria-labelledby="clip-form-title" className="rounded-3xl bg-white p-6 shadow-[0_30px_70px_-50px_rgb(30_46_41/0.5)] sm:p-10 dark:bg-night-bg">
@@ -442,6 +447,11 @@ function ClipForm() {
         </div>
       ) : (
         <form noValidate onSubmit={onSubmit} className="mt-8 grid gap-6 sm:grid-cols-2">
+          {waiting && (
+            <p role="status" className="flex items-center gap-2 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:col-span-2 dark:bg-amber-500/10 dark:text-amber-200">
+              <Loader2 className="size-4 shrink-0 animate-spin" /> {t('content.clip.paymentPending')}
+            </p>
+          )}
           {failed && (
             <p role="alert" className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700 sm:col-span-2 dark:bg-rose-500/10 dark:text-rose-300">
               {t('content.clip.paymentFailed')}
@@ -556,6 +566,30 @@ function ClipForm() {
   )
 }
 
+/** Hôtes dont le lecteur peut être intégré dans la page */
+const EMBED_HOSTS = ['youtube.com', 'youtube-nocookie.com', 'player.vimeo.com', 'facebook.com', 'dailymotion.com']
+
+function safeHttpUrl(raw: string): string | null {
+  try {
+    const url = new URL(raw)
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : null
+  } catch {
+    return null
+  }
+}
+
+/** Lecteur intégrable : https et hôte de la liste blanche (ou un de ses sous-domaines) */
+function isAllowedEmbed(raw: string): boolean {
+  try {
+    const url = new URL(raw)
+    if (url.protocol !== 'https:') return false
+    const host = url.hostname.toLowerCase()
+    return EMBED_HOSTS.some((h) => host === h || host.endsWith(`.${h}`))
+  } catch {
+    return false
+  }
+}
+
 /** TV en ligne : direct en cours (lecteur intégré) et prochaines émissions */
 function LiveTvBlock() {
   const { t, i18n } = useTranslation()
@@ -575,13 +609,23 @@ function LiveTvBlock() {
           {live ? (
             <>
               <div className="relative aspect-video">
-                <iframe
-                  src={live.embed_url}
-                  title={live.title}
-                  allow="autoplay; encrypted-media; picture-in-picture"
-                  allowFullScreen
-                  className="absolute inset-0 h-full w-full"
-                />
+                {isAllowedEmbed(live.embed_url) ? (
+                  <iframe
+                    src={live.embed_url}
+                    title={live.title}
+                    sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allow="autoplay; encrypted-media; picture-in-picture"
+                    allowFullScreen
+                    className="absolute inset-0 h-full w-full"
+                  />
+                ) : (
+                  <a href={safeHttpUrl(live.embed_url) ?? '#tv'} target="_blank" rel="noopener noreferrer" className="absolute inset-0 grid place-items-center text-white underline">
+                    <span className="flex items-center gap-2">
+                      <Play className="size-5" /> {t('content.tv.watch')}
+                    </span>
+                  </a>
+                )}
               </div>
               <div className="flex items-center gap-3 p-5 text-white">
                 <span className="flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-xs font-semibold text-rose-600">

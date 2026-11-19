@@ -192,16 +192,6 @@ export function MyWorksPage() {
                   {(w.status === 'rejected' || w.status === 'removed') && w.moderation_reason && <p className="mt-1 text-xs text-rose-700">{t('dashboard.works.reason', { reason: w.moderation_reason })}</p>}
                 </div>
 
-                {/* Œuvre gratuite ou payante : modifiable à tout moment (p. 10) */}
-                <label className="flex cursor-pointer items-center gap-3 text-sm text-brand-ink dark:text-slate-300">
-                  <span>{w.is_free ? t('artwork.free') : t('dashboard.works.paid')}</span>
-                  <span className="relative inline-flex">
-                    <input type="checkbox" checked={w.is_free} disabled={w.status === 'removed' || (update.isPending && update.variables?.slug === w.slug)} onChange={(e) => update.mutate({ slug: w.slug, input: { is_free: e.target.checked } })} className="peer sr-only" />
-                    <span className="h-6 w-11 rounded-full bg-brand-graphite/20 transition peer-checked:bg-brand-green peer-focus-visible:ring-2 peer-focus-visible:ring-brand-orange" />
-                    <span className="absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
-                  </span>
-                </label>
-
                 {w.status !== 'removed' && (
                   <span className="flex items-center gap-1">
                     {SUBMITTABLE.includes(w.status) && (

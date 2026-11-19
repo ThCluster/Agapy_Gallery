@@ -12,7 +12,7 @@ admin.site.index_title = "Tableau de bord"
 urlpatterns = [
     # Le backend ne sert que l'API et l'administration : la racine renvoie vers le site
     path("", RedirectView.as_view(url=settings.FRONTEND_URL, permanent=False)),
-    path("admin/", admin.site.urls),
+    path(settings.ADMIN_URL, admin.site.urls),  # chemin configurable (ADMIN_URL dans .env)
     path("api/v1/auth/", include("apps.accounts.urls.auth")),
     path("api/v1/accounts/", include("apps.accounts.urls.accounts")),
     path("api/v1/catalog/", include("apps.catalog.urls")),
@@ -22,7 +22,7 @@ urlpatterns = [
     path("api/v1/site/", include("apps.site_content.urls")),
     path("api/v1/dashboards/", include("apps.dashboards.urls")),
     path("api/v1/forum/", include("apps.forum.urls")),
-    # Documentation de l'API
+    # Documentation de l'API (réservée au staff hors DEBUG : SPECTACULAR_SETTINGS["SERVE_PERMISSIONS"])
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),
 ]

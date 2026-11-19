@@ -1,6 +1,6 @@
 /** Publicité : clips de l'accueil, espaces publicitaires, TV en ligne. Backend : apps/promotions. */
 import { useQuery } from '@tanstack/react-query'
-import type { PaymentMethod, PaymentStarted } from '@/api/payments'
+import { getPayment, type PaymentMethod, type PaymentStarted } from '@/api/payments'
 import { api, toFormData } from '@/lib/api'
 
 /** Formats d'espace publicitaire côté API */
@@ -27,6 +27,7 @@ export interface LiveClip {
 }
 
 export interface OrderedClip extends LiveClip {
+  /** Après paiement : pending_review (vérifié par l'équipe avant diffusion), puis queued / live… */
   status: string
   paid_at: string | null
   queue_position: number | null
@@ -84,3 +85,17 @@ export function useLiveTv() {
 
 export const orderClip = (input: ClipOrderInput) =>
   api<ClipOrderResponse>('/promotions/clips/', { method: 'POST', body: toFormData({ ...input }) })
+
+/**
+ * Statut réel d'un paiement au retour du prestataire (GET /payments/<réf>/) : réinterrogé toutes
+ * les 2 s pendant 60 s (30 essais) tant qu'il est en attente. Jamais lu dans l'URL.
+ */
+export function usePaymentStatus(reference: string | null) {
+  return useQuery({
+    queryKey: ['payment', reference],
+    queryFn: () => getPayment(reference ?? ''),
+    enabled: !!reference,
+    retry: false,
+    refetchInterval: (q) => (q.state.data?.status === 'pending' && q.state.dataUpdateCount < 30 ? 2_000 : false),
+  })
+}

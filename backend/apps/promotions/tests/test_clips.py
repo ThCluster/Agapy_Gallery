@@ -7,6 +7,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.test import override_settings
 from django.utils import timezone
+from rest_framework.throttling import SimpleRateThrottle
 
 from apps.accounts.tests.helpers import BaseTestCase, make_artist
 from apps.payments import services as payments
@@ -17,8 +18,12 @@ from apps.promotions.models import AdCampaign, AdFormat, Clip, ClipStatus, LiveS
 MEDIA = tempfile.mkdtemp(prefix="agapy-promo-")
 
 
-def video(name="clip.mp4", size=1024):
-    return SimpleUploadedFile(name, b"0" * size, content_type="video/mp4")
+MP4_HEAD = b"\x00\x00\x00\x18ftypmp42"
+WEBM_HEAD = b"\x1a\x45\xdf\xa3"
+
+
+def video(name="clip.mp4", size=1024, head=MP4_HEAD):
+    return SimpleUploadedFile(name, head + b"0" * size, content_type="video/mp4")
 
 
 def make_clip(status=ClipStatus.QUEUED, paid_at=None, **kw):
@@ -30,6 +35,12 @@ def make_clip(status=ClipStatus.QUEUED, paid_at=None, **kw):
 
 @override_settings(MEDIA_ROOT=MEDIA)
 class ClipOrderTests(BaseTestCase):
+    def setUp(self):
+        super().setUp()
+        patcher = mock.patch.dict(SimpleRateThrottle.THROTTLE_RATES, {"clip_create": "1000/hour"})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
@@ -51,10 +62,16 @@ class ClipOrderTests(BaseTestCase):
         self.assertEqual(payment.purpose, "clip")
         self.assertEqual(payment.target, Clip.objects.get())
 
-    def test_payment_confirmation_starts_playing(self):
+    def test_payment_confirmation_then_approval_starts_playing(self):
         r = self.order()
+        self.assertEqual(r.data["action"]["checkout_url"], f"/paiement/simulation?ref={r.data['payment']['reference']}")
         payments.confirm_payment(Payment.objects.get(reference=r.data["payment"]["reference"]))
         clip = Clip.objects.get()
+        self.assertEqual(clip.status, ClipStatus.PENDING_REVIEW)  # modération avant diffusion
+        self.assertEqual(self.client.get("/api/v1/promotions/clips/live/").data, [])
+        self.assertTrue(services.approve_clip(clip))
+        self.assertFalse(services.approve_clip(clip))
+        clip.refresh_from_db()
         self.assertEqual(clip.status, ClipStatus.PLAYING)
         self.assertIsNotNone(clip.paid_at)
         self.assertEqual(clip.ends_at - clip.starts_at, timedelta(hours=24))
@@ -66,10 +83,28 @@ class ClipOrderTests(BaseTestCase):
         self.assertEqual(r.data["codes"]["duration_seconds"], ["video_too_long"])
         r = self.order(video=video("clip.avi"))
         self.assertEqual(r.data["codes"]["video"], ["video_format"])
+        r = self.order(video=video("clip.mp4", head=b"MZ\x90\x00not-a-video!"))  # extension trompeuse
+        self.assertEqual(r.data["codes"]["video"], ["file_type"])
+        self.assertEqual(self.order(video=video("clip.webm", head=WEBM_HEAD)).status_code, 201)
+        Clip.objects.all().delete()
+        Payment.objects.all().delete()
         with mock.patch("apps.promotions.serializers.CLIP_VIDEO_MAX_BYTES", 10):
             r = self.order()
         self.assertEqual(r.data["codes"]["video"], ["file_too_large"])
         self.assertFalse(Clip.objects.exists())
+
+    def test_poster_is_checked_and_reencoded(self):
+        from apps.accounts.tests.helpers import image_file
+        r = self.order(poster=SimpleUploadedFile("affiche.png", b"GIF89a....", content_type="image/png"))
+        self.assertEqual(r.status_code, 400)
+        r = self.order(poster=image_file("affiche.jpeg"))  # contenu PNG sous une extension .jpeg
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertTrue(Clip.objects.get().poster.name.endswith(".png"))
+
+    def test_throttled(self):
+        with mock.patch.dict(SimpleRateThrottle.THROTTLE_RATES, {"clip_create": "1/hour"}):
+            self.assertEqual(self.order().status_code, 201)
+            self.assertEqual(self.order().status_code, 429)
 
     def test_logged_in_artist_is_attached(self):
         make_artist()
