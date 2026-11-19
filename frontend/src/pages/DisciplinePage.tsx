@@ -2,22 +2,15 @@ import { ArrowRight, ArrowUpRight, TrainFront } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
+import { useArtists, useArtworks, workRatio } from '@/api/catalog'
 import { Img } from '@/components/ui/Img'
 import { Presented } from '@/components/ui/Presented'
-import { disciplineOf } from '@/lib/discipline'
 import { formatSize } from '@/lib/format'
 import { displayPrice, PRICES, useRegion } from '@/lib/pricing'
-import { getArtist } from '@/mocks/artistProfiles'
-import { artistById, artists, freeGalleries, recommended, teamFavorites } from '@/mocks/homeData'
 import type { PhotoKey } from '@/mocks/photos'
-import type { Artwork, Discipline } from '@/types/catalog'
+import type { Discipline } from '@/types/catalog'
 
-const ALL_WORKS: Artwork[] = (() => {
-  const seen = new Set<string>()
-  return [...recommended, ...teamFavorites, ...freeGalleries].filter((w) => !seen.has(w.id) && seen.add(w.id))
-})()
-
-/** Œuvre phare de chaque discipline */
+/** Œuvre phare (illustration fixe de l'en-tête) de chaque discipline */
 const HERO: Record<Discipline, PhotoKey> = { peinture: 'art_a12', photographie: 'art_p3', sculpture: 'art_s1' }
 const ROUTES: Record<Discipline, string> = { peinture: '/peinture', photographie: '/photographie', sculpture: '/sculpture' }
 const DISCIPLINES: Discipline[] = ['peinture', 'photographie', 'sculpture']
@@ -31,18 +24,24 @@ export function DisciplinePage({ discipline }: { discipline: Discipline }) {
   const [access, setAccess] = useState<Access>('all')
   const [sort, setSort] = useState<Sort>('featured')
 
-  const disciplineArtists = artists.filter((a) => a.discipline === discipline || ALL_WORKS.some((w) => w.artistId === a.id && disciplineOf(w) === discipline))
+  // Artistes et œuvres de la discipline (filtre côté API), tri et gratuité côté navigateur
+  const artistsQuery = useArtists({ discipline, page_size: 100 })
+  const worksQuery = useArtworks({ discipline, page_size: 100 })
+  const disciplineArtists = useMemo(() => artistsQuery.data?.results ?? [], [artistsQuery.data])
+  const allWorks = useMemo(() => worksQuery.data?.results ?? [], [worksQuery.data])
+  const freeIds = useMemo(() => new Set(disciplineArtists.filter((a) => a.free).map((a) => a.id)), [disciplineArtists])
   const works = useMemo(() => {
-    const list = ALL_WORKS.filter((w) => disciplineOf(w) === discipline).filter((w) => {
-      const free = !!artistById(w.artistId)?.free
+    const list = allWorks.filter((w) => {
+      const free = freeIds.has(w.artist_id)
       return access === 'all' || (access === 'free' ? free : !free)
     })
     if (sort === 'title') return [...list].sort((a, b) => a.title.localeCompare(b.title, i18n.resolvedLanguage))
-    if (sort === 'artist')
-      return [...list].sort((a, b) => (artistById(a.artistId)?.name ?? '').localeCompare(artistById(b.artistId)?.name ?? '', i18n.resolvedLanguage))
-    return list
-  }, [discipline, access, sort, i18n.resolvedLanguage])
-  const totalWorks = ALL_WORKS.filter((w) => disciplineOf(w) === discipline).length
+    if (sort === 'artist') return [...list].sort((a, b) => a.artist_name.localeCompare(b.artist_name, i18n.resolvedLanguage))
+    // « À la une » : recommandées et coups de cœur d'abord
+    return [...list].sort((a, b) => Number(b.recommended || b.team_favorite) - Number(a.recommended || a.team_favorite))
+  }, [allWorks, freeIds, access, sort, i18n.resolvedLanguage])
+  const totalWorks = worksQuery.data?.count ?? 0
+  const loading = artistsQuery.isPending || worksQuery.isPending
   const others = DISCIPLINES.filter((d) => d !== discipline)
 
   const chip = (active: boolean) =>
@@ -119,13 +118,15 @@ export function DisciplinePage({ discipline }: { discipline: Discipline }) {
           </Link>
         </div>
         <ul className="no-scrollbar -mx-4 mt-6 flex snap-x gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6">
+          {loading &&
+            Array.from({ length: 4 }, (_, i) => <li key={i} className="h-20 w-64 shrink-0 animate-pulse rounded-2xl bg-brand-mist dark:bg-night-card" aria-hidden />)}
           {disciplineArtists.map((a) => {
-            const portrait = getArtist(a.id)?.profile.portrait ?? a.cover
+            const portrait = a.photo ?? a.cover
             return (
               <li key={a.id} className="shrink-0 snap-start">
                 <Link to={`/artistes/${a.id}`} className="group flex w-64 items-center gap-4 rounded-2xl border border-brand-green/10 bg-white p-3 pr-4 transition hover:border-brand-green/30 hover:shadow-lg dark:border-white/10 dark:bg-night-card">
                   <span className="block size-14 shrink-0 overflow-hidden rounded-full bg-brand-mist">
-                    <Img photo={portrait} alt="" className="h-full w-full object-cover" />
+                    <Img src={portrait} alt="" className="h-full w-full object-cover" />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold text-brand-graphite group-hover:text-brand-green dark:text-white">{a.name}</span>
@@ -145,23 +146,29 @@ export function DisciplinePage({ discipline }: { discipline: Discipline }) {
       {/* Œuvres */}
       <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
         <h2 className="text-2xl font-light tracking-tight">{t('disciplinePage.worksTitle', { count: works.length })}</h2>
-        {works.length ? (
+        {loading ? (
+          <ul className="mt-8 grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4" aria-busy>
+            {Array.from({ length: 8 }, (_, i) => (
+              <li key={i} className="aspect-[4/5] animate-pulse bg-brand-mist dark:bg-night-card" />
+            ))}
+          </ul>
+        ) : works.length ? (
           <ul className={`mt-8 columns-2 gap-6 md:columns-3 lg:columns-4 ${discipline === 'sculpture' ? '[&>li]:mb-14' : '[&>li]:mb-10'}`}>
             {works.map((w) => {
-              const artist = artistById(w.artistId)
+              const free = freeIds.has(w.artist_id)
               return (
                 <li key={w.id} className="break-inside-avoid">
-                  <Link to={`/artistes/${w.artistId}`} className="group block">
+                  <Link to={`/oeuvres/${w.id}`} className="group block">
                     <span className="block transition duration-500 group-hover:-translate-y-1">
-                      <Presented discipline={discipline} photo={w.photo} alt={`${w.title}, ${artist?.name ?? ''}`} />
+                      <Presented discipline={discipline} src={w.image} size={workRatio(w)} alt={`${w.title}, ${w.artist_name}`} />
                     </span>
                     <span className={`block ${discipline === 'sculpture' ? 'mt-4 text-center' : 'mt-3'}`}>
                       <span className="block truncate text-sm font-semibold text-brand-graphite group-hover:text-brand-green dark:text-white">{w.title}</span>
-                      <span className="block truncate text-sm text-brand-ink/80 dark:text-slate-300">{artist?.name}</span>
+                      <span className="block truncate text-sm text-brand-ink/80 dark:text-slate-300">{w.artist_name}</span>
                       <span className="block truncate text-xs text-gray-500">
                         {w.technique} · {formatSize(w.size)}
                       </span>
-                      <span className="price mt-1 block text-sm">{artist?.free ? t('artwork.free') : `${t('artwork.visit')} ${displayPrice(PRICES.visit, region, i18n.resolvedLanguage)}`}</span>
+                      <span className="price mt-1 block text-sm">{free ? t('artwork.free') : `${t('artwork.visit')} ${displayPrice(PRICES.visit, region, i18n.resolvedLanguage)}`}</span>
                     </span>
                   </Link>
                 </li>

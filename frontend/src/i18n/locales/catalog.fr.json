@@ -1,0 +1,20 @@
+{
+  "catalog": {
+    "empty": "Aucune œuvre pour le moment.",
+    "artist": {
+      "defaultBio": "{{name}} expose ses œuvres sur AGAPY-GALLERY depuis {{city}}, {{country}}."
+    },
+    "artwork": {
+      "summary": "« {{title}} » est une œuvre de {{name}}, réalisée à {{city}}. {{technique}}, {{h}} × {{w}} cm."
+    },
+    "payment": {
+      "method": "Moyen de paiement",
+      "card": "Carte bancaire",
+      "momo": "Mobile Money",
+      "visitThanks": "Merci ! Votre droit de visite est actif pendant 24 heures.",
+      "donationThanks": "Merci pour votre don : il soutient directement l'artiste.",
+      "failed": "Le paiement n'a pas abouti. Aucun montant n'a été débité, vous pouvez réessayer.",
+      "enter": "Entrer dans la galerie"
+    }
+  }
+}

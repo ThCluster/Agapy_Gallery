@@ -1,0 +1,87 @@
+{
+  "content": {
+    "loading": "Chargement…",
+    "close": "Fermer",
+    "backHome": "Retour à l’accueil",
+    "newsletter": {
+      "eyebrow": "Newsletter",
+      "pending": "Désinscription en cours…",
+      "doneTitle": "Vous êtes désinscrit",
+      "doneText": "Vous ne recevrez plus la newsletter d’AGAPY-GALLERY. Vous pouvez vous réinscrire à tout moment depuis le bas de page.",
+      "errorTitle": "Désinscription impossible",
+      "missingToken": "Ce lien de désinscription est incomplet. Utilisez le lien reçu dans l’e-mail."
+    },
+    "clip": {
+      "videoSize": "La vidéo ne doit pas dépasser 50 Mo.",
+      "poster": "Affiche du clip",
+      "posterHint": "Image affichée avant la lecture (JPG, PNG ou WebP, 5 Mo maximum).",
+      "posterInvalid": "Choisissez une image de 5 Mo maximum.",
+      "method": "Moyen de paiement",
+      "methods": {
+        "momo": "Mobile money",
+        "card": "Carte bancaire",
+        "wallet": "Compte d’Avoir"
+      },
+      "successQueue": "Votre clip est payé. Il occupe la position n° {{position}} dans la file d’attente et sera diffusé 24 heures en boucle sur l’accueil.",
+      "successText": "Votre clip est payé. Il sera diffusé 24 heures en boucle sur l’accueil dès qu’une place se libère.",
+      "paymentFailed": "Le paiement n’a pas abouti : votre clip n’a pas été mis en diffusion. Vous pouvez réessayer."
+    },
+    "tv": {
+      "eyebrow": "AGAPY TV",
+      "title": "La TV en ligne",
+      "offAir": "Aucune émission en direct pour le moment.",
+      "upcoming": "Prochaines émissions",
+      "none": "Aucune émission programmée."
+    },
+    "forum": {
+      "loginToPost": "Se connecter pour publier",
+      "loginToReply": "Se connecter pour répondre",
+      "searchPlaceholder": "Rechercher un sujet",
+      "empty": "Aucun sujet pour le moment. Les artistes connectés peuvent lancer la discussion.",
+      "noResults": "Aucun sujet ne correspond à « {{q}} ».",
+      "locked": "Sujet fermé",
+      "lockedNote": "Ce sujet est fermé : il n’est plus possible d’y répondre.",
+      "pagination": "Pages",
+      "pageOf": "Page {{page}} sur {{pages}}",
+      "category": "Catégorie",
+      "titleLabel": "Titre du sujet",
+      "bodyLabel": "Votre message",
+      "submitTopic": "Publier le sujet",
+      "back": "Retour au forum",
+      "notFound": "Ce sujet n’existe pas ou a été retiré.",
+      "noReplies": "Aucune réponse pour le moment.",
+      "replyLabel": "Votre réponse",
+      "sendReply": "Répondre",
+      "report": "Signaler",
+      "reportReason": "Pourquoi signalez-vous ce message ?",
+      "reported": "Merci, l’équipe va examiner ce message.",
+      "errors": {
+        "title": "Le titre doit contenir au moins 5 caractères.",
+        "body": "Le message doit contenir au moins 10 caractères.",
+        "reply": "Écrivez votre réponse."
+      }
+    }
+  },
+  "static": {
+    "contact": {
+      "email": "E-mail",
+      "emailPlaceholder": "aya@exemple.com",
+      "phone": "Téléphone",
+      "phonePlaceholder": "+225 07 00 00 00 00",
+      "errors": {
+        "email": "Indiquez une adresse e-mail valide.",
+        "phone": "Numéro de téléphone invalide."
+      }
+    },
+    "ads": {
+      "form": {
+        "videoHint": "MP4 ou WebM, 30 secondes et 50 Mo maximum.",
+        "contact": "Téléphone ou e-mail de contact",
+        "secure": "Vous serez redirigé vers la page de paiement sécurisée."
+      }
+    }
+  },
+  "errors": {
+    "topic_locked": "Ce sujet est fermé : il n’est plus possible d’y répondre."
+  }
+}

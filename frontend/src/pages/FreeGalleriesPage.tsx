@@ -2,11 +2,11 @@ import { ArrowRight, CalendarClock, Gift, MapPin, Search, Sparkles, TrainFront }
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router'
-import { ArtworkCard } from '@/components/ui/ArtworkCard'
+import { useFreeGalleryWorks, type CatalogArtist, type CatalogArtwork } from '@/api/catalog'
+import { ArtworkCard, ArtworkCardSkeleton } from '@/components/ui/ArtworkCard'
 import { Img } from '@/components/ui/Img'
-import { getArtist } from '@/mocks/artistProfiles'
-import { artists, freeGalleries } from '@/mocks/homeData'
-import type { Artist, Discipline } from '@/types/catalog'
+import { villaPhoto } from '@/features/artist/villaPhotos'
+import { normalize } from '@/lib/search'
 
 const FILTERS = ['all', 'peinture', 'photographie', 'sculpture'] as const
 type Filter = (typeof FILTERS)[number]
@@ -18,17 +18,17 @@ export function FreeGalleriesPage() {
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState(params.get('q') ?? '')
 
+  // Galeries gratuites aujourd'hui (/catalog/free-galleries/) et leurs œuvres
+  const { data: freeWorks, galleries: all, isPending } = useFreeGalleryWorks()
   const galleries = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return artists.filter(
-      (a) =>
-        a.free &&
-        (filter === 'all' || a.discipline === (filter as Discipline)) &&
-        (!q || [a.name, a.city, a.country].some((v) => v.toLowerCase().includes(q))),
+    const q = normalize(query)
+    return (all ?? []).filter(
+      (a) => (filter === 'all' || a.discipline === filter) && (!q || [a.name, a.city, a.country].some((v) => normalize(v).includes(q))),
     )
-  }, [filter, query])
+  }, [all, filter, query])
+  const worksOf = (id: string) => (freeWorks ?? []).filter((w) => w.artist_id === id)
 
-  const totalFree = artists.filter((a) => a.free).length
+  const totalFree = all?.length ?? 0
   const dateFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage, { day: 'numeric', month: 'long', year: 'numeric' })
 
   return (
@@ -56,14 +56,14 @@ export function FreeGalleriesPage() {
           </div>
           {/* Trois œuvres accrochées en quinconce */}
           <div className="relative hidden h-80 lg:block" aria-hidden>
-            {freeGalleries.slice(0, 3).map((w, i) => (
+            {(freeWorks ?? []).slice(0, 3).map((w, i) => (
               <span
                 key={w.id}
                 className="absolute block border-[6px] border-[#2b2b2b] bg-white p-3 shadow-[0_30px_60px_-30px_rgb(30_30_30/0.55)]"
                 style={{ left: `${[4, 34, 62][i]}%`, top: `${[14, 0, 22][i]}%`, transform: `rotate(${[-3, 2, -1][i]}deg)` }}
               >
                 <span className="block h-44 w-32 overflow-hidden">
-                  <Img photo={w.photo} alt="" className="h-full w-full object-cover" />
+                  <Img src={w.image} alt="" className="h-full w-full object-cover" />
                 </span>
               </span>
             ))}
@@ -99,12 +99,18 @@ export function FreeGalleriesPage() {
 
       {/* Galeries */}
       <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
-        <p className="mb-8 text-sm text-gray-500">{t('freeGalleries.count', { count: galleries.length })}</p>
-        {galleries.length ? (
+        {!isPending && <p className="mb-8 text-sm text-gray-500">{t('freeGalleries.count', { count: galleries.length })}</p>}
+        {isPending ? (
+          <ul className="grid gap-8 md:grid-cols-2 lg:grid-cols-3" aria-busy>
+            {Array.from({ length: 3 }, (_, i) => (
+              <li key={i} className="h-[420px] animate-pulse rounded-3xl bg-brand-mist dark:bg-night-card" />
+            ))}
+          </ul>
+        ) : galleries.length ? (
           <ul className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
             {galleries.map((a) => (
               <li key={a.id}>
-                <GalleryCard artist={a} until={a.freeUntil ? dateFmt.format(new Date(a.freeUntil)) : null} />
+                <GalleryCard artist={a} works={worksOf(a.id)} until={a.free_until ? dateFmt.format(new Date(a.free_until)) : null} />
               </li>
             ))}
           </ul>
@@ -125,9 +131,9 @@ export function FreeGalleriesPage() {
           <p className="eyebrow">{t('freeGalleries.worksEyebrow')}</p>
           <h2 className="mt-2 text-3xl font-light tracking-tight">{t('freeGalleries.worksTitle')}</h2>
           <div className="no-scrollbar -mx-4 mt-8 flex snap-x snap-mandatory gap-6 overflow-x-auto px-4 pb-4 sm:-mx-6 sm:px-6">
-            {freeGalleries.map((w) => (
-              <ArtworkCard key={w.id} artwork={w} free />
-            ))}
+            {isPending
+              ? Array.from({ length: 4 }, (_, i) => <ArtworkCardSkeleton key={i} />)
+              : (freeWorks ?? []).map((w) => <ArtworkCard key={w.id} artwork={w} free />)}
           </div>
         </div>
       </section>
@@ -157,16 +163,13 @@ export function FreeGalleriesPage() {
 }
 
 /** Carte d'une galerie gratuite : villa, portrait, œuvres, durée de gratuité et actions. */
-function GalleryCard({ artist, until }: { artist: Artist; until: string | null }) {
+function GalleryCard({ artist, works, until }: { artist: CatalogArtist; works: CatalogArtwork[]; until: string | null }) {
   const { t } = useTranslation()
-  const data = getArtist(artist.id)
-  if (!data) return null
-  const { profile, works } = data
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-3xl border border-brand-green/10 bg-white shadow-[0_20px_60px_-40px_rgb(30_46_41/0.5)] transition hover:-translate-y-1 hover:shadow-[0_30px_70px_-35px_rgb(30_46_41/0.55)] dark:border-white/10 dark:bg-night-card">
       <Link to={`/artistes/${artist.id}`} className="relative block aspect-[16/10] overflow-hidden bg-brand-mist">
-        <Img photo={profile.villa} alt={t('artist.villaOf', { name: artist.name })} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
+        <Img photo={villaPhoto(artist.address)} alt={t('artist.villaOf', { name: artist.name })} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
         <span className="absolute top-3 left-3 rounded-full bg-white/95 px-3 py-1 text-xs font-semibold text-brand-green shadow-sm">{t('artwork.free')}</span>
         <span className="absolute right-3 bottom-3 flex items-center gap-1 rounded-full bg-white/95 px-3 py-1 text-xs text-brand-graphite shadow-sm">
           <MapPin className="size-3.5 text-brand-orange" /> {t('artist.address', { n: artist.address })}
@@ -175,13 +178,14 @@ function GalleryCard({ artist, until }: { artist: Artist; until: string | null }
 
       <div className="relative flex flex-1 flex-col px-6 pt-10 pb-6">
         <span className="absolute -top-8 left-6 block size-16 overflow-hidden rounded-full bg-brand-mist ring-4 ring-white dark:ring-night-card">
-          <Img photo={profile.portrait ?? artist.cover} alt="" className="h-full w-full object-cover" />
+          <Img src={artist.photo ?? artist.cover} alt="" className="h-full w-full object-cover" />
         </span>
         <Link to={`/artistes/${artist.id}`} className="text-xl font-semibold text-brand-graphite hover:text-brand-green dark:text-white">
           {artist.name}
         </Link>
         <p className="text-sm text-gray-500">
-          {t(`discipline.${artist.discipline}`)} · {artist.city}, {artist.country}
+          {artist.discipline && `${t(`discipline.${artist.discipline}`)} · `}
+          {artist.city}, {artist.country}
         </p>
 
         {/* Durée de la gratuité */}
@@ -195,10 +199,10 @@ function GalleryCard({ artist, until }: { artist: Artist; until: string | null }
           <div className="mt-4 flex items-center gap-2">
             {works.slice(0, 3).map((w) => (
               <span key={w.id} className="block size-14 overflow-hidden rounded-lg bg-brand-mist">
-                <Img photo={w.photo} alt={w.title} className="h-full w-full object-cover" />
+                <Img src={w.image} alt={w.title} className="h-full w-full object-cover" />
               </span>
             ))}
-            <span className="ml-1 text-xs text-gray-500">{t('freeGalleries.works', { count: works.length })}</span>
+            <span className="ml-1 text-xs text-gray-500">{t('freeGalleries.works', { count: artist.artwork_count || works.length })}</span>
           </div>
         )}
 

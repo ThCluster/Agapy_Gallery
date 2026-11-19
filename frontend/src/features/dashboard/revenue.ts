@@ -1,55 +1,18 @@
 /**
- * Revenus d'exemple de l'artiste (part nette qui lui revient), jour par jour sur trois ans.
- * À remplacer par l'API. Visite : 75 % de 250 F = 187,5 F ; don : 85 % du montant.
+ * Revenus de l'artiste (part nette qui lui revient), regroupés par l'API
+ * (GET /dashboards/me/revenue/?period=) : outils de période, libellés et montants.
  */
+import { formatNumber, formatXOF } from '@/lib/format'
+
 export type Period = 'day' | 'week' | 'month' | 'quarter' | 'year'
 export const PERIODS: Period[] = ['day', 'week', 'month', 'quarter', 'year']
 
-export interface DayRevenue {
-  date: Date
-  visits: number
-  /** Revenus nets des visites (F CFA) */
-  visitRevenue: number
-  /** Revenus nets des dons (F CFA) */
-  donationRevenue: number
-}
+/** Nombre de barres affichées par période */
+export const BUCKET_COUNT: Record<Period, number> = { day: 30, week: 12, month: 12, quarter: 8, year: 3 }
 
-export interface Bucket {
-  key: string
-  start: Date
-  visits: number
-  visitRevenue: number
-  donationRevenue: number
-}
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-const VISIT_SHARE = 250 * 0.75
-const DONATION_SHARE = 0.85
-
-function random(seed: number) {
-  let s = seed >>> 0
-  return () => {
-    s = (Math.imul(s, 1664525) + 1013904223) >>> 0
-    return s / 2 ** 32
-  }
-}
-
-/** Série quotidienne déterministe : croissance lente, rythme hebdomadaire, quelques gros dons */
-export function dailyRevenue(today = new Date()): DayRevenue[] {
-  const r = random(2024)
-  const days: DayRevenue[] = []
-  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  for (let i = 3 * 365 - 1; i >= 0; i--) {
-    const date = new Date(start.getTime() - i * 86_400_000)
-    const growth = 0.35 + (1 - i / (3 * 365)) * 0.9
-    const weekend = date.getDay() === 0 || date.getDay() === 6 ? 1.45 : 1
-    const visits = Math.round((8 + r() * 22) * growth * weekend)
-    const donations = r() < 0.18 ? Math.round((500 + r() * (r() < 0.1 ? 9500 : 2500)) / 100) * 100 : 0
-    days.push({ date, visits, visitRevenue: Math.round(visits * VISIT_SHARE), donationRevenue: Math.round(donations * DONATION_SHARE) })
-  }
-  return days
-}
-
-function startOf(period: Period, d: Date): Date {
+export function startOf(period: Period, d: Date): Date {
   switch (period) {
     case 'day':
       return new Date(d.getFullYear(), d.getMonth(), d.getDate())
@@ -66,30 +29,33 @@ function startOf(period: Period, d: Date): Date {
   }
 }
 
-/** Nombre de barres affichées par période */
-export const BUCKET_COUNT: Record<Period, number> = { day: 30, week: 12, month: 12, quarter: 8, year: 3 }
+/** Intervalle des N dernières périodes (dates ISO, bornes incluses) */
+export function rangeFor(period: Period, count = BUCKET_COUNT[period], today = new Date()): { from: string; to: string } {
+  const s = startOf(period, today)
+  const n = count - 1
+  const from =
+    period === 'day'
+      ? new Date(s.getFullYear(), s.getMonth(), s.getDate() - n)
+      : period === 'week'
+        ? new Date(s.getFullYear(), s.getMonth(), s.getDate() - 7 * n)
+        : period === 'month'
+          ? new Date(s.getFullYear(), s.getMonth() - n, 1)
+          : period === 'quarter'
+            ? new Date(s.getFullYear(), s.getMonth() - 3 * n, 1)
+            : new Date(s.getFullYear() - n, 0, 1)
+  return { from: iso(from), to: iso(today) }
+}
 
-/** Regroupe la série quotidienne par jour, semaine, mois, trimestre ou année (les N dernières périodes) */
-export function aggregate(days: DayRevenue[], period: Period): Bucket[] {
-  const map = new Map<string, Bucket>()
-  for (const d of days) {
-    const start = startOf(period, d.date)
-    const key = start.toISOString()
-    const b = map.get(key) ?? { key, start, visits: 0, visitRevenue: 0, donationRevenue: 0 }
-    b.visits += d.visits
-    b.visitRevenue += d.visitRevenue
-    b.donationRevenue += d.donationRevenue
-    map.set(key, b)
-  }
-  return [...map.values()].sort((a, b) => a.start.getTime() - b.start.getTime()).slice(-BUCKET_COUNT[period])
+/** Début de période renvoyé par l'API (« 2026-05-01 » ou date-heure) en date locale */
+export function parseStart(start: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(start)
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(start)
 }
 
 /** Libellé court d'une période pour l'axe */
-export function bucketLabel(b: Bucket, period: Period, locale: string): string {
-  const d = b.start
+export function bucketLabel(d: Date, period: Period, locale: string): string {
   switch (period) {
     case 'day':
-      return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' }).format(d)
     case 'week':
       return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' }).format(d)
     case 'month':
@@ -99,4 +65,10 @@ export function bucketLabel(b: Bucket, period: Period, locale: string): string {
     case 'year':
       return String(d.getFullYear())
   }
+}
+
+/** Montant dans sa devise (F CFA par défaut) */
+export function formatMoney(amount: number, currency: string | undefined, locale = 'fr'): string {
+  if (!currency || currency === 'XOF') return formatXOF(Math.round(amount), locale)
+  return `${formatNumber(Math.round(amount * 100) / 100, locale)} ${currency === 'EUR' ? '€' : currency === 'USD' ? '$' : currency}`
 }

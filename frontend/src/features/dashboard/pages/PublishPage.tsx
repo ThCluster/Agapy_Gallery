@@ -7,13 +7,13 @@ import { Link } from 'react-router'
 import { z } from 'zod'
 import { Field } from '@/features/signup/Field'
 import { inputClass } from '@/features/signup/inputClass'
-import { formatXOF } from '@/lib/format'
-import { PRICES, VAT_RATE, withVat } from '@/lib/pricing'
-import { getArtist } from '@/mocks/artistProfiles'
-import { FRAMES, subscriptionState, useArtistSpace, type FrameId } from '@/stores/artistSpace'
+import { submitStarted, useCreateArtwork, useMyGallery, useQuote, useSubmitArtwork, useSubscription } from '@/api/artistSpace'
+import { followPaymentAction } from '@/api/payments'
+import { ApiError, errorMessage, toNumber } from '@/lib/api'
 import { useAuth } from '@/stores/auth'
-import { FRAME_CLASS, FRAME_SWATCH } from '../frames'
+import { FRAME_CLASS, FRAME_SWATCH, FRAMES, type FrameId } from '../frames'
 import { PayMethods, type PayMethod } from '../PayMethods'
+import { formatMoney } from '../revenue'
 
 const schema = z.object({
   title: z.string().trim().min(1, 'signup.errors.required'),
@@ -26,7 +26,7 @@ const schema = z.object({
   authorContact: z.string().trim().min(1, 'signup.errors.required'),
   copyrightOffice: z.string().trim().min(1, 'signup.errors.required'),
   copyrightContact: z.string().trim().min(1, 'signup.errors.required'),
-  file: z.custom<FileList | undefined>().refine((f) => !!f?.[0], 'dashboard.publish.errors.file').refine((f) => !f?.[0] || f[0].type.startsWith('image/'), 'signup.errors.photoType').refine((f) => !f?.[0] || f[0].size <= 15 * 1024 * 1024, 'dashboard.publish.errors.fileSize'),
+  file: z.custom<FileList | undefined>().refine((f) => !!f?.[0], 'dashboard.publish.errors.file').refine((f) => !f?.[0] || f[0].type.startsWith('image/'), 'signup.errors.photoType').refine((f) => !f?.[0] || f[0].size <= 10 * 1024 * 1024, 'dashboard.publish.errors.fileSize'),
   frame: z.enum(['black', 'wood', 'gold', 'white', 'none']),
   free: z.boolean(),
   certify: z.boolean().refine((v) => v, 'dashboard.publish.errors.certify'),
@@ -39,26 +39,34 @@ type Step = 'form' | 'payment' | 'paying' | 'done'
 export function PublishPage() {
   const { t, i18n } = useTranslation()
   const lng = i18n.resolvedLanguage
-  const artistId = useAuth((s) => s.artistId)!
   const phone = useAuth((s) => s.phone)
-  const { expiresAt, freePublicationUsed, addWork, spend } = useArtistSpace()
-  const { artist, profile } = getArtist(artistId)!
+  const email = useAuth((s) => s.user?.email)
+  const me = useAuth((s) => s.user?.artist)
+  const artist = { name: me?.display_name ?? '' }
+  const subscription = useSubscription().data
+  const gallery = useMyGallery()
+  const quote = useQuote('publication', me?.region).data
+  const create = useCreateArtwork()
+  const submitWork = useSubmitArtwork()
   const [step, setStep] = useState<Step>('form')
   const [method, setMethod] = useState<PayMethod>('momo')
+  const [error, setError] = useState<string | null>(null)
   const submitted = useRef(false)
+  /** Œuvre déjà créée (brouillon) : un nouvel essai ne la recrée pas */
+  const createdSlug = useRef<string | null>(null)
 
   const form = useForm<PublishForm>({
     resolver: zodResolver(schema),
     defaultValues: {
       title: '',
       summary: '',
-      discipline: artist.discipline,
+      discipline: 'peinture',
       technique: '',
       height: '',
       width: '',
       authorName: artist.name,
-      authorContact: phone ?? '',
-      copyrightOffice: profile.copyrightOffice,
+      authorContact: phone ?? email ?? '',
+      copyrightOffice: '',
       copyrightContact: '',
       file: undefined,
       frame: 'black',
@@ -81,7 +89,7 @@ export function PublishPage() {
   )
 
   // Compte en veille : publication impossible tant que l'abonnement n'est pas renouvelé (p. 8)
-  if (subscriptionState(expiresAt).state === 'standby') {
+  if (subscription?.state === 'standby') {
     return (
       <div className="rounded-3xl border border-rose-200 bg-rose-50 p-8 text-rose-900">
         <ShieldAlert className="size-8" />
@@ -94,27 +102,57 @@ export function PublishPage() {
     )
   }
 
-  const fee = PRICES.publication.africa.amount
-  const offered = !freePublicationUsed
-  const total = offered ? 0 : withVat(fee)
+  const fee = toNumber(quote?.amount_ht)
+  const vat = toNumber(quote?.vat)
+  const money = (v: number, l?: string) => formatMoney(v, quote?.currency, l)
+  const offered = !!gallery.data && !gallery.data.free_publication_used
+  const total = offered ? 0 : toNumber(quote?.amount_ttc)
 
   const publish = async () => {
     setStep('paying')
-    if (method === 'wallet' && !offered) spend(total, t('dashboard.publish.walletLabel', { title: getValues('title') }))
-    // TODO : envoyer l'œuvre et le paiement à l'API (puis file d'attente de modération)
-    await new Promise((r) => setTimeout(r, 1600))
+    setError(null)
     const v = getValues()
-    submitted.current = true
-    addWork({
-      title: v.title,
-      technique: v.technique,
-      size: [Number(v.height), Number(v.width)],
-      previewUrl: preview ?? undefined,
-      frame: v.frame as FrameId,
-      free: v.free,
-    })
-    setStep('done')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    try {
+      if (!createdSlug.current) {
+        const work = await create.mutateAsync({
+          title: v.title,
+          summary: v.summary,
+          discipline: v.discipline,
+          technique: v.technique,
+          height_cm: v.height,
+          width_cm: v.width,
+          image: v.file?.[0],
+          frame: v.frame as FrameId,
+          is_free: v.free,
+          author_name: v.authorName,
+          author_contact: v.authorContact,
+          copyright_office: v.copyrightOffice,
+          copyright_contact: v.copyrightContact,
+          owner_certified: v.certify,
+        })
+        createdSlug.current = work.slug
+      }
+      const result = await submitWork.mutateAsync({ slug: createdSlug.current, method: offered ? undefined : method })
+      submitted.current = true
+      const started = submitStarted(result)
+      if (started && !followPaymentAction(started, '/tableau-de-bord/oeuvres')) return // redirection vers le paiement
+      setStep('done')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch (e) {
+      // Erreur sur un champ du formulaire : retour au formulaire avec le message
+      const fields: Record<string, keyof PublishForm> = {
+        title: 'title', summary: 'summary', technique: 'technique', height_cm: 'height', width_cm: 'width', image: 'file',
+        author_name: 'authorName', author_contact: 'authorContact', copyright_office: 'copyrightOffice', copyright_contact: 'copyrightContact', owner_certified: 'certify',
+      }
+      const field = e instanceof ApiError ? Object.keys(e.fieldCodes()).find((k) => k in fields) : undefined
+      if (field && !createdSlug.current) {
+        form.setError(fields[field], { message: errorMessage(e, field) })
+        setStep('form')
+      } else {
+        setError(errorMessage(e, e instanceof ApiError && e.code('method') ? 'method' : 'detail'))
+        setStep('payment')
+      }
+    }
   }
 
   if (step === 'done') {
@@ -273,13 +311,13 @@ export function PublishPage() {
               <div className="flex justify-between gap-4">
                 <dt>{t('dashboard.publish.fee')}</dt>
                 <dd className={offered ? 'text-gray-400 line-through' : 'font-medium'}>
-                  {formatXOF(fee, lng)} {t('home.exhibit.ht')}
+                  {money(fee, lng)} {t('home.exhibit.ht')}
                 </dd>
               </div>
               {!offered && (
                 <div className="flex justify-between gap-4">
                   <dt className="text-gray-500">{t('signup.payment.vat')}</dt>
-                  <dd className="text-gray-500">{formatXOF(fee * VAT_RATE, lng)}</dd>
+                  <dd className="text-gray-500">{money(vat, lng)}</dd>
                 </div>
               )}
               {offered && (
@@ -291,7 +329,7 @@ export function PublishPage() {
               <div className="flex items-baseline justify-between gap-4 border-t border-brand-graphite/10 pt-4 dark:border-white/10">
                 <dt className="font-semibold">{t('signup.payment.total')}</dt>
                 <dd className="text-2xl font-semibold">
-                  {formatXOF(total, lng)} {!offered && <span className="text-sm font-normal text-gray-500">{t('home.exhibit.ttc')}</span>}
+                  {money(total, lng)} {!offered && <span className="text-sm font-normal text-gray-500">{t('home.exhibit.ttc')}</span>}
                 </dd>
               </div>
             </dl>
@@ -299,9 +337,10 @@ export function PublishPage() {
 
           {!offered && <PayMethods value={method} onChange={setMethod} amount={total} />}
 
-          <button type="button" onClick={publish} disabled={step === 'paying'} className="btn-action rounded-full px-7 py-3.5">
-            <Lock className="size-4" /> {step === 'paying' ? t('signup.paying') : offered ? t('dashboard.publish.submitFree') : t('payment.pay', { amount: formatXOF(total, lng) })}
+          <button type="button" onClick={publish} disabled={step === 'paying' || gallery.isPending || (!offered && !quote)} className="btn-action rounded-full px-7 py-3.5">
+            <Lock className="size-4" /> {step === 'paying' ? t('signup.paying') : offered ? t('dashboard.publish.submitFree') : t('payment.pay', { amount: money(total, lng) })}
           </button>
+          {error && <p className="text-sm text-rose-700">{error}</p>}
           <p className="text-xs text-gray-500">{t('dashboard.publish.moderationNote')}</p>
         </div>
       )}

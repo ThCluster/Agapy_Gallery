@@ -1,0 +1,55 @@
+{
+  "auth": {
+    "forgot": {
+      "resent": "A new code has just been sent."
+    },
+    "signup": {
+      "checking": "Checking your payment…",
+      "paymentFailed": "The account opening fee payment did not go through. Your registration is saved: you can retry the payment.",
+      "retryPayment": "Retry payment"
+    },
+    "dashboard": {
+      "loading": "Loading your space",
+      "notArtist": {
+        "title": "Artists only",
+        "text": "This account is not linked to an artist or foundation profile."
+      },
+      "pending": {
+        "title": "Account awaiting activation",
+        "text": "Your space will open as soon as the account opening fee is paid. Your credentials will then be sent by SMS and email.",
+        "action": "Complete my registration"
+      },
+      "excluded": {
+        "title": "Account disabled",
+        "text": "This account has been disabled by the AGAPY-GALLERY team. Contact us to find out more."
+      }
+    },
+    "simulation": {
+      "banner": "Simulated payment: no real money is charged.",
+      "title": "Payment",
+      "noReference": "No payment reference.",
+      "reference": "Reference",
+      "purpose": {
+        "signup": "Account opening fee",
+        "renewal": "Subscription renewal",
+        "publication": "Artwork publication",
+        "visit": "Visit pass",
+        "donation": "Donation",
+        "clip": "Clip broadcast",
+        "wallet_topup": "Credit Account top-up"
+      },
+      "ht": "Amount excl. VAT",
+      "vat": "VAT",
+      "ttc": "Total incl. VAT",
+      "pay": "Pay",
+      "refuse": "Decline",
+      "already": {
+        "succeeded": "This payment is already confirmed.",
+        "failed": "This payment was declined.",
+        "cancelled": "This payment was cancelled."
+      },
+      "back": "Back to the site",
+      "home": "Back to home"
+    }
+  }
+}

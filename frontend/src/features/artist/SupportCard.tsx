@@ -1,9 +1,11 @@
-import { Check, Gift, Lock, TrainFront } from 'lucide-react'
+import { Check, CreditCard, Gift, Lock, Smartphone, TrainFront } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
+import { isPaymentStarted, PENDING_DONATION_KEY, sendDonation, startVisit, type CatalogArtist, type PendingDonation } from '@/api/catalog'
+import { followPaymentAction, type PaymentMethod } from '@/api/payments'
+import { errorMessage } from '@/lib/api'
 import { DONATION_ARTIST_SHARE, formatPrice, PRICES, useRegion, withVat, type Currency, type Region } from '@/lib/pricing'
-import type { Artist } from '@/types/catalog'
 
 /** Montants de don proposés selon la zone */
 const DONATIONS: Record<Region, { currency: Currency; amounts: number[] }> = {
@@ -16,12 +18,23 @@ const DONATIONS: Record<Region, { currency: Currency; amounts: number[] }> = {
  * Les choix du visiteur (cahier des charges, p. 11) : visiter la galerie,
  * faire un don, les deux… ou simplement s'arrêter là.
  */
-export function SupportCard({ artist }: { artist: Artist }) {
+interface Props {
+  artist: CatalogArtist
+  /** Droit de visite déjà acquis (galerie gratuite ou jeton valide) */
+  hasAccess?: boolean
+  /** Paiement confirmé sans redirection (ex. Compte d'Avoir) */
+  onPaid?: (purpose: 'visit' | 'donation') => void
+}
+
+export function SupportCard({ artist, hasAccess = false, onPaid }: Props) {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const region = useRegion((s) => s.region)
   const lng = i18n.resolvedLanguage
-  const free = !!artist.free
+  const free = !!artist.free || hasAccess
+  const [method, setMethod] = useState<Exclude<PaymentMethod, 'wallet'>>('momo')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const [visit, setVisit] = useState(true)
   const [donate, setDonate] = useState(false)
@@ -36,13 +49,37 @@ export function SupportCard({ artist }: { artist: Artist }) {
   const total = (visit ? visitAmount : 0) + donation
   const money = (n: number) => formatPrice({ amount: n, currency }, lng)
 
-  const submit = () => {
-    // La zone fixe la devise du don et le prix de la visite sur la page de paiement
-    const params = new URLSearchParams({ artiste: artist.id, zone: region })
-    if (visit) params.set('visite', '1')
-    if (donation) params.set('don', String(donation))
-    if (free && visit && !donation) navigate(`/ville/${artist.id}`)
-    else navigate(`/paiement?${params}`)
+  const submit = async () => {
+    setError(null)
+    if (free && visit && !donation) {
+      navigate(`/ville/${artist.id}`)
+      return
+    }
+    setBusy(true)
+    try {
+      const gift: PendingDonation | null = donation ? { artist: artist.id, amount: donation, method, region } : null
+      if (visit && !free) {
+        // Galerie payante : la visite d'abord, le don éventuel est lancé au retour du paiement
+        if (gift) sessionStorage.setItem(PENDING_DONATION_KEY, JSON.stringify(gift))
+        const res = await startVisit({ artist: artist.id, method, region })
+        if (!isPaymentStarted(res)) {
+          // La galerie est devenue gratuite entre-temps
+          sessionStorage.removeItem(PENDING_DONATION_KEY)
+          onPaid?.('visit')
+          if (!gift) return navigate(`/ville/${artist.id}`)
+        } else if (followPaymentAction(res, `/artistes/${artist.id}`)) {
+          sessionStorage.removeItem(PENDING_DONATION_KEY)
+          onPaid?.('visit')
+        } else return
+        if (!gift) return
+      }
+      if (gift && (await sendDonation(gift))) onPaid?.('donation')
+    } catch (e) {
+      sessionStorage.removeItem(PENDING_DONATION_KEY)
+      setError(errorMessage(e))
+    } finally {
+      setBusy(false)
+    }
   }
 
   const option = (active: boolean) =>
@@ -115,12 +152,34 @@ export function SupportCard({ artist }: { artist: Artist }) {
         )}
       </div>
 
+      {/* Moyen de paiement */}
+      {total > 0 && (
+        <div className="mt-6">
+          <p className="text-xs font-semibold text-gray-500">{t('catalog.payment.method')}</p>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {(['momo', 'card'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMethod(m)}
+                aria-pressed={method === m}
+                className={`flex items-center justify-center gap-2 rounded-xl border px-2 py-2.5 text-sm font-semibold transition ${
+                  method === m ? 'border-brand-green bg-brand-green/[0.06] text-brand-green ring-1 ring-brand-green' : 'border-brand-graphite/15 text-brand-graphite hover:border-brand-green/40 dark:text-white'
+                }`}
+              >
+                {m === 'card' ? <CreditCard className="size-4" /> : <Smartphone className="size-4" />} {t(`catalog.payment.${m}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="mt-6 flex items-baseline justify-between border-t border-brand-graphite/10 pt-4 dark:border-white/10">
         <span className="text-sm text-gray-500">{t('artist.support.total')}</span>
         <span className="text-2xl font-semibold text-brand-graphite dark:text-white">{money(total)}</span>
       </div>
 
-      <button type="button" onClick={submit} disabled={!visit && !donation} className="btn-primary mt-4 w-full rounded-full py-3.5 text-[15px]">
+      <button type="button" onClick={submit} disabled={(!visit && !donation) || busy} aria-busy={busy} className="btn-primary mt-4 w-full rounded-full py-3.5 text-[15px]">
         {free && visit && !donation ? (
           <>
             <TrainFront className="size-5" /> {t('artist.support.goFree')}
@@ -131,6 +190,11 @@ export function SupportCard({ artist }: { artist: Artist }) {
           </>
         )}
       </button>
+      {error && (
+        <p role="alert" className="mt-3 text-center text-sm text-red-600">
+          {error}
+        </p>
+      )}
       <p className="mt-3 text-center text-xs text-gray-500">{t('artist.support.methods')}</p>
       <p className="mt-1 text-center text-xs text-gray-400">{t('artist.support.stop')}</p>
     </div>

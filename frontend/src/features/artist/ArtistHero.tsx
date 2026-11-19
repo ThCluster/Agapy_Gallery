@@ -4,10 +4,11 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { Img } from '@/components/ui/Img'
 import { formatNumber } from '@/lib/format'
-import type { ArtistProfile } from '@/mocks/artistProfiles'
-import type { Artist } from '@/types/catalog'
+import type { CatalogArtistDetail } from '@/api/catalog'
+import { villaPhoto } from './villaPhotos'
 
-export function ArtistHero({ artist, profile }: { artist: Artist; profile: ArtistProfile }) {
+export function ArtistHero({ artist }: { artist: CatalogArtistDetail }) {
+  const profile = { visits: artist.visits, memberSince: artist.member_since, socials: artist.socials }
   const { t, i18n } = useTranslation()
   const [copied, setCopied] = useState(false)
 
@@ -37,7 +38,7 @@ export function ArtistHero({ artist, profile }: { artist: Artist; profile: Artis
 
       {/* Photo de la villa */}
       <div className="relative h-[260px] overflow-hidden rounded-3xl bg-brand-mist sm:h-[420px]">
-        <Img photo={profile.villa} alt={t('artist.villaOf', { name: artist.name })} priority className="h-full w-full object-cover" />
+        <Img photo={villaPhoto(artist.address)} alt={t('artist.villaOf', { name: artist.name })} priority className="h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
         <span className="absolute top-4 left-4 flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold text-brand-graphite shadow-sm backdrop-blur">
           <MapPin className="size-3.5 text-brand-orange" /> {t('artist.address', { n: artist.address })}
@@ -48,12 +49,12 @@ export function ArtistHero({ artist, profile }: { artist: Artist; profile: Artis
       <div className="relative z-10 mx-auto -mt-20 max-w-6xl rounded-3xl border border-brand-green/10 bg-white/95 p-6 shadow-[0_30px_80px_-40px_rgb(30_46_41/0.45)] backdrop-blur sm:-mt-24 sm:p-8 dark:border-white/10 dark:bg-night-card/95">
         <div className="flex flex-col gap-6 md:flex-row md:items-end">
           <span className="-mt-16 block size-28 shrink-0 overflow-hidden rounded-full bg-brand-mist ring-4 ring-white sm:-mt-20 sm:size-36 dark:ring-night-card">
-            <Img photo={profile.portrait ?? artist.cover} alt={artist.name} priority className="h-full w-full object-cover" />
+            <Img src={artist.photo ?? artist.cover} alt={artist.name} priority className="h-full w-full object-cover" />
           </span>
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="eyebrow">{t(`discipline.${artist.discipline}`)}</span>
+              {artist.discipline && <span className="eyebrow">{t(`discipline.${artist.discipline}`)}</span>}
               <span className={artist.free ? 'status-success' : 'status-pending'}>{artist.free ? t('artist.freeGallery') : t('artist.paidGallery')}</span>
             </div>
             <h1 className="mt-2 flex items-center gap-2 text-4xl font-light tracking-tight sm:text-5xl">

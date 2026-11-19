@@ -1,9 +1,11 @@
 import { CheckCircle2, Lock, Wallet } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { formatXOF } from '@/lib/format'
-import { useArtistSpace } from '@/stores/artistSpace'
-import { PayMethods, type PayMethod } from '../PayMethods'
+import { useSetWalletActive, useTopup, useWallet } from '@/api/artistSpace'
+import { followPaymentAction } from '@/api/payments'
+import { errorMessage, toNumber } from '@/lib/api'
+import { PaymentReturnNotice, PayMethods, type PayMethod } from '../PayMethods'
+import { formatMoney } from '../revenue'
 
 const AMOUNTS = [5_000, 10_000, 20_000, 50_000]
 
@@ -15,7 +17,14 @@ const AMOUNTS = [5_000, 10_000, 20_000, 50_000]
 export function WalletPage() {
   const { t, i18n } = useTranslation()
   const lng = i18n.resolvedLanguage
-  const { wallet, setWalletActive, topUp } = useArtistSpace()
+  const [page, setPage] = useState(1)
+  const query = useWallet(page)
+  const setActive = useSetWalletActive()
+  const topUp = useTopup()
+  const data = query.data
+  const wallet = { active: !!data?.is_active, balance: toNumber(data?.balance), history: data?.history.results ?? [] }
+  const formatXOF = (v: number, l?: string) => formatMoney(v, data?.currency, l)
+  const setWalletActive = (active: boolean) => setActive.mutate(active)
   const [amount, setAmount] = useState(AMOUNTS[1])
   const [custom, setCustom] = useState('')
   const [method, setMethod] = useState<PayMethod>('momo')
@@ -23,14 +32,24 @@ export function WalletPage() {
   const value = Number(custom) || amount
   const dateFmt = new Intl.DateTimeFormat(lng, { day: 'numeric', month: 'short', year: 'numeric' })
 
-  const recharge = async () => {
+  const recharge = () => {
     setStatus('paying')
-    // TODO : paiement de la recharge via le prestataire (mobile money ou carte)
-    await new Promise((r) => setTimeout(r, 1400))
-    topUp(value, method === 'momo' ? t('dashboard.wallet.topUpMomo') : t('dashboard.wallet.topUpCard'))
-    setStatus('done')
-    setCustom('')
+    topUp.mutate(
+      { amount: value, method: method === 'card' ? 'card' : 'momo' },
+      {
+        onSuccess: (started) => {
+          if (followPaymentAction(started, '/tableau-de-bord/compte-avoir')) {
+            setStatus('done')
+            setCustom('')
+          }
+        },
+        onError: () => setStatus('idle'),
+      },
+    )
   }
+
+  if (query.isPending) return <p className="text-sm text-gray-500">{t('dashboard.loading')}</p>
+  if (query.isError) return <p className="text-sm text-rose-700">{errorMessage(query.error)}</p>
 
   return (
     <div className="space-y-6">
@@ -39,6 +58,9 @@ export function WalletPage() {
         <h1 className="mt-1 text-3xl font-light tracking-tight">{t('dashboard.wallet.title')}</h1>
         <p className="mt-1 max-w-2xl text-sm text-gray-500">{t('dashboard.wallet.subtitle')}</p>
       </div>
+
+      <PaymentReturnNotice />
+      {setActive.isError && <p className="text-sm text-rose-700">{errorMessage(setActive.error)}</p>}
 
       {/* Solde et activation */}
       <div className="flex flex-col gap-6 rounded-3xl bg-gradient-to-br from-white to-brand-mist p-6 sm:flex-row sm:items-center sm:justify-between dark:from-night-card dark:to-night-field">
@@ -57,7 +79,7 @@ export function WalletPage() {
             <span className="block text-xs text-gray-500">{wallet.active ? t('dashboard.wallet.activeHint') : t('dashboard.wallet.inactiveHint')}</span>
           </span>
           <span className="relative inline-flex">
-            <input type="checkbox" checked={wallet.active} onChange={(e) => setWalletActive(e.target.checked)} className="peer sr-only" />
+            <input type="checkbox" checked={wallet.active} disabled={setActive.isPending} onChange={(e) => setWalletActive(e.target.checked)} className="peer sr-only" />
             <span className="h-7 w-12 rounded-full bg-brand-graphite/20 transition peer-checked:bg-brand-green peer-focus-visible:ring-2 peer-focus-visible:ring-brand-orange" />
             <span className="absolute top-1 left-1 size-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
           </span>
@@ -100,6 +122,7 @@ export function WalletPage() {
               <div className="mt-5">
                 <PayMethods value={method === 'wallet' ? 'momo' : method} onChange={setMethod} amount={value} allowWallet={false} />
               </div>
+              {topUp.isError && <p className="mt-4 text-sm text-rose-700">{errorMessage(topUp.error, 'amount')}</p>}
               <button type="button" onClick={recharge} disabled={status === 'paying' || value < 500} className="btn-action mt-5 w-full rounded-full py-3">
                 <Lock className="size-4" /> {status === 'paying' ? t('signup.paying') : t('dashboard.wallet.topUpPay', { amount: formatXOF(value, lng) })}
               </button>
@@ -120,13 +143,24 @@ export function WalletPage() {
                     <span className="block text-brand-graphite dark:text-white">{h.label}</span>
                     <span className="block text-xs text-gray-500">{dateFmt.format(new Date(h.date))}</span>
                   </span>
-                  <span className={`font-semibold tabular-nums ${h.amount >= 0 ? 'text-emerald-700' : 'text-brand-graphite dark:text-white'}`}>
-                    {h.amount >= 0 ? '+' : '−'}
-                    {formatXOF(Math.abs(h.amount), lng)}
+                  <span className={`font-semibold tabular-nums ${toNumber(h.amount) >= 0 ? 'text-emerald-700' : 'text-brand-graphite dark:text-white'}`}>
+                    {toNumber(h.amount) >= 0 ? '+' : '−'}
+                    {formatXOF(Math.abs(toNumber(h.amount)), lng)}
                   </span>
                 </li>
               ))}
             </ul>
+          )}
+          {data && (data.history.next || data.history.previous) && (
+            <div className="mt-4 flex items-center justify-between text-sm">
+              <button type="button" disabled={!data.history.previous || query.isFetching} onClick={() => setPage((p) => Math.max(1, p - 1))} className="link disabled:opacity-40">
+                {t('dashboard.previous')}
+              </button>
+              <span className="text-xs text-gray-500">{t('dashboard.page', { page })}</span>
+              <button type="button" disabled={!data.history.next || query.isFetching} onClick={() => setPage((p) => p + 1)} className="link disabled:opacity-40">
+                {t('dashboard.next')}
+              </button>
+            </div>
           )}
         </section>
       </div>

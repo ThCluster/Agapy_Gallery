@@ -1,0 +1,20 @@
+{
+  "catalog": {
+    "empty": "No artworks yet.",
+    "artist": {
+      "defaultBio": "{{name}} exhibits on AGAPY-GALLERY from {{city}}, {{country}}."
+    },
+    "artwork": {
+      "summary": "“{{title}}” is a work by {{name}}, created in {{city}}. {{technique}}, {{h}} × {{w}} cm."
+    },
+    "payment": {
+      "method": "Payment method",
+      "card": "Bank card",
+      "momo": "Mobile Money",
+      "visitThanks": "Thank you! Your visit pass is active for 24 hours.",
+      "donationThanks": "Thank you for your donation: it directly supports the artist.",
+      "failed": "The payment did not go through. Nothing was charged, you can try again.",
+      "enter": "Enter the gallery"
+    }
+  }
+}

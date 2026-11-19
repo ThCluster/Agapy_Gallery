@@ -1,9 +1,11 @@
 import { Brush, Car, Home, Palette, TrainFront, UserRound, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
+import { useSitePage } from '@/api/site'
 import { Img } from '@/components/ui/Img'
 import { Reveal } from '@/components/ui/Reveal'
 import type { PhotoKey } from '@/mocks/photos'
+import { RichText } from './RichText'
 
 interface Item {
   title: string
@@ -17,7 +19,9 @@ const TARGET_ICONS = [Palette, Users] as const
 
 /** « Qui sommes-nous ? » : vision, objectifs, concept de la ville et porteur du projet (cahier des charges). */
 export function AboutPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  // Texte publié depuis l'administration ; repli sur le texte local si absent
+  const { data: remote } = useSitePage('about', i18n.resolvedLanguage)
   const vision = t('static.about.vision', { returnObjects: true }) as string[]
   const objectives = t('static.about.objectives', { returnObjects: true }) as string[]
   const concept = t('static.about.concept', { returnObjects: true }) as Item[]
@@ -56,6 +60,14 @@ export function AboutPage() {
         </div>
       </section>
 
+      {remote ? (
+        <section className="mx-auto max-w-3xl px-4 py-20 sm:px-6">
+          <Reveal>
+            <RichText text={remote.body} className="text-lg" />
+          </Reveal>
+        </section>
+      ) : (
+      <>
       {/* Vision */}
       <section className="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6">
         <Reveal>
@@ -141,6 +153,9 @@ export function AboutPage() {
           </div>
         </div>
       </section>
+
+      </>
+      )}
 
       {/* Porteur du projet */}
       <section className="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6">

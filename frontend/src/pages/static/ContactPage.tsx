@@ -1,8 +1,11 @@
 import { CheckCircle2, Clock, Loader2, MapPin, Phone, Send } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
+import { sendContact } from '@/api/site'
 import { Field } from '@/features/signup/Field'
 import { inputClass } from '@/features/signup/inputClass'
+import { errorMessage } from '@/lib/api'
+import { apiFieldErrors } from './formErrors'
 
 const SUBJECTS = ['visitor', 'artist', 'advertiser', 'partnership', 'press', 'other'] as const
 const PHONE = '+225 25 22 00 86 05'
@@ -10,36 +13,36 @@ const MIN_MESSAGE = 20
 
 interface Form {
   name: string
-  contact: string
+  email: string
+  phone: string
   subject: string
   message: string
 }
 type Errors = Partial<Record<keyof Form, string>>
 
-const EMPTY: Form = { name: '', contact: '', subject: '', message: '' }
+const EMPTY: Form = { name: '', email: '', phone: '', subject: '', message: '' }
 
-/** E-mail valide, ou numéro de téléphone d’au moins 8 chiffres */
-const isEmailOrPhone = (value: string) => {
-  const v = value.trim()
-  if (/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) return true
-  return /^\+?[\d\s.()-]+$/.test(v) && v.replace(/\D/g, '').length >= 8
-}
+const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim())
+/** Téléphone facultatif : au moins 8 chiffres s’il est renseigné */
+const isPhone = (v: string) => /^\+?[\d\s.()-]+$/.test(v.trim()) && v.replace(/\D/g, '').length >= 8
 
 function validate(form: Form): Errors {
   const errors: Errors = {}
   if (!form.name.trim()) errors.name = 'static.contact.errors.name'
-  if (!isEmailOrPhone(form.contact)) errors.contact = 'static.contact.errors.contact'
+  if (!isEmail(form.email)) errors.email = 'static.contact.errors.email'
+  if (form.phone.trim() && !isPhone(form.phone)) errors.phone = 'static.contact.errors.phone'
   if (!form.subject) errors.subject = 'static.contact.errors.subject'
   if (form.message.trim().length < MIN_MESSAGE) errors.message = 'static.contact.errors.message'
   return errors
 }
 
-/** Page Contact : formulaire « Nous écrire » (simulé) et coordonnées de G’A HOLDING. */
+/** Page Contact : formulaire « Nous écrire » (envoyé à /site/contact/) et coordonnées de G’A HOLDING. */
 export function ContactPage() {
   const { t } = useTranslation()
   const [form, setForm] = useState<Form>(EMPTY)
   const [errors, setErrors] = useState<Errors>({})
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent'>('idle')
+  const [formError, setFormError] = useState<string | null>(null)
 
   const update = (key: keyof Form) => (e: { target: { value: string } }) => {
     setForm((f) => ({ ...f, [key]: e.target.value }))
@@ -57,9 +60,22 @@ export function ContactPage() {
       return
     }
     setStatus('sending')
-    // TODO : envoyer à l'API
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    setStatus('sent')
+    setFormError(null)
+    try {
+      await sendContact({
+        name: form.name.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        subject: t(`static.contact.subjects.${form.subject}`),
+        message: form.message.trim(),
+      })
+      setStatus('sent')
+    } catch (err) {
+      const fields = apiFieldErrors(err) as Errors
+      setErrors(fields)
+      if (!Object.keys(fields).length) setFormError(errorMessage(err))
+      setStatus('idle')
+    }
   }
 
   const reset = () => {
@@ -110,16 +126,30 @@ export function ContactPage() {
                   className={inputClass(!!errors.name)}
                 />
               </Field>
-              <Field id="contact-contact" label={t('static.contact.contact')} error={errors.contact} hint={t('static.contact.contactHint')}>
+              <Field id="contact-email" label={t('static.contact.email')} error={errors.email}>
                 <input
-                  id="contact-contact"
+                  id="contact-email"
+                  type="email"
                   autoComplete="email"
-                  value={form.contact}
-                  onChange={update('contact')}
-                  placeholder={t('static.contact.contactPlaceholder')}
-                  aria-invalid={!!errors.contact}
-                  aria-describedby={describedBy('contact', true)}
-                  className={inputClass(!!errors.contact)}
+                  value={form.email}
+                  onChange={update('email')}
+                  placeholder={t('static.contact.emailPlaceholder')}
+                  aria-invalid={!!errors.email}
+                  aria-describedby={describedBy('email')}
+                  className={inputClass(!!errors.email)}
+                />
+              </Field>
+              <Field id="contact-phone" label={t('static.contact.phone')} error={errors.phone} optional>
+                <input
+                  id="contact-phone"
+                  type="tel"
+                  autoComplete="tel"
+                  value={form.phone}
+                  onChange={update('phone')}
+                  placeholder={t('static.contact.phonePlaceholder')}
+                  aria-invalid={!!errors.phone}
+                  aria-describedby={describedBy('phone')}
+                  className={inputClass(!!errors.phone)}
                 />
               </Field>
               <Field id="contact-subject" label={t('static.contact.subject')} error={errors.subject} className="sm:col-span-2">
@@ -160,6 +190,11 @@ export function ContactPage() {
                 />
               </Field>
               <div className="sm:col-span-2">
+                {formError && (
+                  <p role="alert" className="mb-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">
+                    {formError}
+                  </p>
+                )}
                 <button type="submit" disabled={status === 'sending'} className="btn-primary w-full rounded-full px-6 py-3.5 sm:w-auto">
                   {status === 'sending' ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
                   {status === 'sending' ? t('static.contact.sending') : t('static.contact.submit')}

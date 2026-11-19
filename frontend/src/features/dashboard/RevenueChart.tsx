@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { formatNumber, formatXOF } from '@/lib/format'
-import { aggregate, bucketLabel, PERIODS, type Bucket, type DayRevenue, type Period } from './revenue'
+import { useRevenue } from '@/api/dashboard'
+import { formatNumber } from '@/lib/format'
+import { bucketLabel, formatMoney, parseStart, PERIODS, rangeFor, type Period } from './revenue'
 
 /**
  * Couleurs des séries, voisines de la charte mais validées pour les graphiques
@@ -18,9 +19,10 @@ interface Row {
   total: number
 }
 
-function ChartTooltip({ active, row, lng }: { active?: boolean; row?: Row; lng: string }) {
+function ChartTooltip({ active, row, lng, currency }: { active?: boolean; row?: Row; lng: string; currency?: string }) {
   const { t } = useTranslation()
   if (!active || !row) return null
+  const formatXOF = (v: number, l: string) => formatMoney(v, currency, l)
   return (
     <div className="rounded-xl border border-brand-graphite/10 bg-white px-4 py-3 text-sm shadow-lg dark:border-white/10 dark:bg-night-card">
       <p className="font-semibold text-brand-graphite dark:text-white">{row.label}</p>
@@ -39,23 +41,29 @@ function ChartTooltip({ active, row, lng }: { active?: boolean; row?: Row; lng: 
 }
 
 /** Revenus de l'artiste par jour, semaine, mois, trimestre ou année (cahier des charges, p. 13). */
-export function RevenueChart({ days }: { days: DayRevenue[] }) {
+export function RevenueChart() {
   const { t, i18n } = useTranslation()
   const lng = i18n.resolvedLanguage ?? 'fr'
   const [period, setPeriod] = useState<Period>('month')
+  const [currency, setCurrency] = useState<string | undefined>()
   const [showTable, setShowTable] = useState(false)
+  const range = useMemo(() => rangeFor(period), [period])
+  const { data, isPending, isError } = useRevenue({ period, ...range, currency })
+  const cur = data?.currency ?? currency
+  const formatXOF = (v: number, l: string) => formatMoney(v, cur, l)
 
   const rows: Row[] = useMemo(
     () =>
-      aggregate(days, period).map((b: Bucket) => ({
-        label: bucketLabel(b, period, lng),
-        visits: b.visits,
-        visitRevenue: b.visitRevenue,
-        donationRevenue: b.donationRevenue,
-        total: b.visitRevenue + b.donationRevenue,
+      (data?.series ?? []).map((p) => ({
+        label: bucketLabel(parseStart(p.start), period, lng),
+        visits: p.visit_count,
+        visitRevenue: Number(p.visits),
+        donationRevenue: Number(p.donations),
+        total: Number(p.total),
       })),
-    [days, period, lng],
+    [data, period, lng],
   )
+  const empty = !isPending && (isError || rows.length === 0)
   const compact = new Intl.NumberFormat(lng, { notation: 'compact', maximumFractionDigits: 1 })
 
   return (
@@ -66,6 +74,16 @@ export function RevenueChart({ days }: { days: DayRevenue[] }) {
           <p className="text-sm text-gray-500">{t('dashboard.chart.subtitle')}</p>
         </div>
         {/* Filtres sur une seule ligne, au-dessus du graphique */}
+        <div className="flex max-w-full flex-wrap items-center gap-2">
+        {data && data.currencies.length > 1 && (
+          <select value={data.currency} onChange={(e) => setCurrency(e.target.value)} aria-label={t('dashboard.chart.currency')} className="rounded-full border border-brand-graphite/10 bg-white px-3 py-1.5 text-xs font-semibold sm:text-sm dark:border-white/10 dark:bg-night-field">
+            {data.currencies.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        )}
         <div role="tablist" aria-label={t('dashboard.chart.periodLabel')} className="no-scrollbar flex max-w-full gap-1 overflow-x-auto rounded-full bg-brand-mist p-1 dark:bg-night-field">
           {PERIODS.map((p) => (
             <button
@@ -82,6 +100,7 @@ export function RevenueChart({ days }: { days: DayRevenue[] }) {
             </button>
           ))}
         </div>
+        </div>
       </div>
 
       {/* Légende (deux séries) */}
@@ -94,7 +113,11 @@ export function RevenueChart({ days }: { days: DayRevenue[] }) {
         </li>
       </ul>
 
-      {showTable ? (
+      {isPending ? (
+        <div className="mt-4 h-72 w-full animate-pulse rounded-xl bg-brand-mist dark:bg-night-field" aria-busy="true" />
+      ) : empty ? (
+        <p className="mt-4 grid h-72 place-items-center rounded-xl bg-brand-mist text-center text-sm text-gray-500 dark:bg-night-field">{isError ? t('dashboard.loadError') : t('dashboard.chart.empty')}</p>
+      ) : showTable ? (
         <div className="mt-4 max-h-80 overflow-auto rounded-xl border border-brand-graphite/10 dark:border-white/10">
           <table className="w-full text-sm">
             <caption className="sr-only">{t('dashboard.chart.title')}</caption>
@@ -127,7 +150,7 @@ export function RevenueChart({ days }: { days: DayRevenue[] }) {
               <CartesianGrid vertical={false} stroke="#E8ECEA" strokeWidth={1} />
               <XAxis dataKey="label" tickLine={false} axisLine={{ stroke: '#D5DBD8' }} tick={{ fill: '#6b7280', fontSize: 12 }} interval="preserveStartEnd" minTickGap={12} />
               <YAxis tickLine={false} axisLine={false} width={48} tick={{ fill: '#6b7280', fontSize: 12 }} tickFormatter={(v: number) => compact.format(v)} />
-              <Tooltip cursor={{ fill: 'rgb(0 103 79 / 0.06)' }} content={(props) => <ChartTooltip active={props.active} row={props.payload?.[0]?.payload as Row | undefined} lng={lng} />} />
+              <Tooltip cursor={{ fill: 'rgb(0 103 79 / 0.06)' }} content={(props) => <ChartTooltip active={props.active} row={props.payload?.[0]?.payload as Row | undefined} lng={lng} currency={cur} />} />
               {/* Barres empilées : fines, séparées par un liseré de la couleur du fond, sommet arrondi */}
               <Bar dataKey="visitRevenue" stackId="rev" fill={SERIES.visits} stroke="#ffffff" strokeWidth={2} maxBarSize={24} isAnimationActive={false} />
               <Bar dataKey="donationRevenue" stackId="rev" fill={SERIES.donations} stroke="#ffffff" strokeWidth={2} maxBarSize={24} radius={[4, 4, 0, 0]} isAnimationActive={false} />
@@ -136,7 +159,7 @@ export function RevenueChart({ days }: { days: DayRevenue[] }) {
         </div>
       )}
 
-      <button type="button" onClick={() => setShowTable((s) => !s)} className="link mt-4 text-sm">
+      <button type="button" onClick={() => setShowTable((s) => !s)} disabled={empty || isPending} className="link mt-4 text-sm disabled:opacity-50">
         {showTable ? t('dashboard.chart.showChart') : t('dashboard.chart.showTable')}
       </button>
     </section>

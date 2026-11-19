@@ -1,16 +1,21 @@
-import { Apple, ArrowUp, Play } from 'lucide-react'
+import { Apple, ArrowUp, Loader2, Play } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
+import { siteLang, subscribeNewsletter } from '@/api/site'
 import { Logo } from '@/components/ui/Logo'
+import { errorMessage } from '@/lib/api'
 import { type Region, useRegion } from '@/lib/pricing'
 
 const YEAR = new Date().getFullYear()
 const PAYMENTS = ['Orange Money', 'MTN MoMo', 'Wave', 'Moov Money', 'Visa', 'Mastercard']
 
 export function SiteFooter() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [subscribed, setSubscribed] = useState(false)
+  const [email, setEmail] = useState('')
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const { region, setRegion } = useRegion()
 
   const columns = [
@@ -49,10 +54,18 @@ export function SiteFooter() {
     },
   ]
 
-  const onSubscribe = (e: FormEvent) => {
+  const onSubscribe = async (e: FormEvent) => {
     e.preventDefault()
-    // TODO : brancher l'inscription à la newsletter sur l'API
-    setSubscribed(true)
+    setSending(true)
+    setError(null)
+    try {
+      await subscribeNewsletter(email.trim(), siteLang(i18n.resolvedLanguage))
+      setSubscribed(true)
+    } catch (err) {
+      setError(errorMessage(err, 'email'))
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -87,14 +100,22 @@ export function SiteFooter() {
                   <input
                     type="email"
                     required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    aria-invalid={!!error}
                     placeholder={t('footer.emailPlaceholder')}
                     aria-label={t('footer.emailPlaceholder')}
                     className="min-w-0 flex-1 rounded-lg border border-white/30 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-white/60 focus:border-brand-orange focus:outline-none"
                   />
-                  <button type="submit" className="btn-action">
-                    OK
+                  <button type="submit" disabled={sending} className="btn-action">
+                    {sending ? <Loader2 className="size-4 animate-spin" aria-label={t('content.loading')} /> : 'OK'}
                   </button>
                 </div>
+              )}
+              {error && !subscribed && (
+                <p role="alert" className="mt-2 text-xs text-brand-yellow">
+                  {error}
+                </p>
               )}
             </form>
             {/* Applications mobiles (téléchargement 100 F CFA) */}

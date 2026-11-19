@@ -1,0 +1,55 @@
+{
+  "auth": {
+    "forgot": {
+      "resent": "Un nouveau code vient d'être envoyé."
+    },
+    "signup": {
+      "checking": "Vérification de votre paiement…",
+      "paymentFailed": "Le paiement des frais d'ouverture n'a pas abouti. Votre inscription est enregistrée : vous pouvez relancer le paiement.",
+      "retryPayment": "Relancer le paiement"
+    },
+    "dashboard": {
+      "loading": "Chargement de votre espace",
+      "notArtist": {
+        "title": "Espace réservé aux artistes",
+        "text": "Ce compte n'est pas associé à un profil d'artiste ou de fondation."
+      },
+      "pending": {
+        "title": "Compte en attente d'activation",
+        "text": "Votre espace s'ouvrira dès le paiement des frais d'ouverture. Vos identifiants vous seront alors envoyés par SMS et par e-mail.",
+        "action": "Finaliser mon inscription"
+      },
+      "excluded": {
+        "title": "Compte désactivé",
+        "text": "Ce compte a été désactivé par l'équipe AGAPY-GALLERY. Contactez-nous pour en savoir plus."
+      }
+    },
+    "simulation": {
+      "banner": "Paiement simulé : aucun argent réel n’est encaissé.",
+      "title": "Paiement",
+      "noReference": "Aucune référence de paiement.",
+      "reference": "Référence",
+      "purpose": {
+        "signup": "Frais d'ouverture",
+        "renewal": "Renouvellement de l'abonnement",
+        "publication": "Publication d'une œuvre",
+        "visit": "Droit de visite",
+        "donation": "Don",
+        "clip": "Diffusion d'un clip",
+        "wallet_topup": "Recharge du Compte d'Avoir"
+      },
+      "ht": "Montant HT",
+      "vat": "TVA",
+      "ttc": "Total TTC",
+      "pay": "Payer",
+      "refuse": "Refuser",
+      "already": {
+        "succeeded": "Ce paiement est déjà confirmé.",
+        "failed": "Ce paiement a été refusé.",
+        "cancelled": "Ce paiement a été annulé."
+      },
+      "back": "Revenir sur le site",
+      "home": "Retour à l'accueil"
+    }
+  }
+}
