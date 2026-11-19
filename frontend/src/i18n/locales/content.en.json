@@ -22,16 +22,18 @@
         "card": "Bank card",
         "wallet": "Credit account"
       },
-      "successQueue": "Your clip is paid. It is number {{position}} in the queue and will loop on the home page for 24 hours.",
-      "successText": "Your clip is paid. It will loop on the home page for 24 hours as soon as a slot is free.",
-      "paymentFailed": "The payment did not go through: your clip is not on air. You can try again."
+      "successQueue": "Your clip is paid. The AGAPY team reviews it before broadcasting; it is number {{position}} in the queue and will then loop on the home page for 24 hours.",
+      "successText": "Your clip is paid. The AGAPY team reviews it before broadcasting; it will then loop on the home page for 24 hours as soon as a slot is free.",
+      "paymentFailed": "The payment did not go through: your clip is not on air. You can try again.",
+      "paymentPending": "Payment being confirmed… This page updates automatically."
     },
     "tv": {
       "eyebrow": "AGAPY TV",
       "title": "Online TV",
       "offAir": "No live broadcast at the moment.",
       "upcoming": "Upcoming broadcasts",
-      "none": "No broadcast scheduled."
+      "none": "No broadcast scheduled.",
+      "watch": "Watch the live stream"
     },
     "forum": {
       "loginToPost": "Log in to post",

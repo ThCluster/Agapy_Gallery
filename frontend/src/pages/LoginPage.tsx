@@ -10,15 +10,17 @@ import { ArtShowcase } from '@/features/auth/ArtShowcase'
 import { AFRICA, countryName, OTHERS } from '@/features/auth/countries'
 import { loginSchema, type LoginForm } from '@/features/auth/loginSchema'
 import { errorMessage } from '@/lib/api'
+import { safeInternalPath } from '@/lib/safePath'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 import { useAuth } from '@/stores/auth'
 
 export function LoginPage() {
   const { t, i18n } = useTranslation()
+  useDocumentTitle(t('auth.title.login'))
   const navigate = useNavigate()
   const [params] = useSearchParams()
   // Après connexion : retour à la page demandée (uniquement une adresse interne)
-  const back = params.get('retour')
-  const target = back && back.startsWith('/') && !back.startsWith('//') ? back : '/tableau-de-bord'
+  const target = safeInternalPath(params.get('retour'), '/tableau-de-bord')
   const login = useAuth((s) => s.login)
   const [showPassword, setShowPassword] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)

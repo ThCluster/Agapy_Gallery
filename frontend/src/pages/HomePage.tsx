@@ -8,11 +8,11 @@ import { ClipsSection } from '@/features/home/ClipsSection'
 import { ExhibitSection } from '@/features/home/ExhibitSection'
 import { HeroSection } from '@/features/home/HeroSection'
 import { HowItWorks } from '@/features/home/HowItWorks'
-import { InterviewsBand } from '@/features/home/InterviewsBand'
 import { Reassurance } from '@/features/home/Reassurance'
 import { TrendingArtists } from '@/features/home/TrendingArtists'
 import { VillaOfTheWeek } from '@/features/home/VillaOfTheWeek'
 import { VisitOptions } from '@/features/home/VisitOptions'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 /** Contenu d'un carrousel d'œuvres : squelettes, message vide ou cartes */
 function Works({ works, pending, free = false }: { works?: CatalogArtwork[]; pending: boolean; free?: boolean }) {
@@ -26,7 +26,8 @@ export function HomePage() {
   const { t } = useTranslation()
   const recommended = useArtworks({ recommended: true, page_size: 12 })
   const favorites = useArtworks({ team_favorite: true, page_size: 12 })
-  const free = useFreeGalleryWorks()
+  const free = useFreeGalleryWorks(12)
+  useDocumentTitle(null)
 
   return (
     <>
@@ -54,10 +55,10 @@ export function HomePage() {
         subtitle={t('home.free.subtitle')}
         cta={{ label: t('home.free.cta'), to: '/galeries-gratuites' }}
       >
-        <Works works={free.data?.slice(0, 12)} pending={free.isPending} free />
+        <Works works={free.data} pending={free.isPending} free />
       </CarouselSection>
 
-      <InterviewsBand />
+      {/* Interviews d'artistes : masquées tant qu'aucune interview réelle n'est publiée */}
 
       <CarouselSection
         eyebrow={t('home.favorites.eyebrow')}

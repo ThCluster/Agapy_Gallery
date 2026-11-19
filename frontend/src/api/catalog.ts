@@ -4,7 +4,7 @@
  */
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { api, type Page } from '@/lib/api'
-import { followPaymentAction, type PaymentMethod, type PaymentStarted } from '@/api/payments'
+import { followPaymentAction, getVisitToken, type PaymentMethod, type PaymentStarted } from '@/api/payments'
 import type { Region } from '@/lib/pricing'
 
 export type ApiDiscipline = 'peinture' | 'photographie' | 'sculpture' | 'autre'
@@ -26,6 +26,8 @@ export interface CatalogArtist {
   free: boolean
   free_until: string | null
   artwork_count: number
+  /** Visites réelles de la galerie */
+  visits?: number
 }
 
 export interface CatalogArtwork {
@@ -80,6 +82,8 @@ export interface ArtistFilters {
   discipline?: string
   country?: string
   free?: boolean
+  /** Tri côté API : -visits (visites réelles), -views (vues des œuvres) */
+  ordering?: '-visits' | '-views'
   page?: number
   page_size?: number
 }
@@ -90,6 +94,8 @@ export interface ArtworkFilters {
   discipline?: string
   recommended?: boolean
   team_favorite?: boolean
+  /** Œuvres des galeries actuellement en visite gratuite */
+  free_gallery?: boolean
   page?: number
   page_size?: number
 }
@@ -101,7 +107,12 @@ export const getArtist = (slug: string) => api<CatalogArtistDetail>(`/catalog/ar
 export const listArtworks = (f: ArtworkFilters = {}) =>
   api<Page<CatalogArtwork>>('/catalog/artworks/', {
     ...opts,
-    query: { ...f, recommended: f.recommended ? 'true' : undefined, team_favorite: f.team_favorite ? 'true' : undefined },
+    query: {
+      ...f,
+      recommended: f.recommended ? 'true' : undefined,
+      team_favorite: f.team_favorite ? 'true' : undefined,
+      free_gallery: f.free_gallery ? 'true' : undefined,
+    },
   })
 export const getArtwork = (slug: string) => api<CatalogArtwork>(`/catalog/artworks/${encodeURIComponent(slug)}/`, opts)
 export const listFreeGalleries = (page_size = 24) => api<Page<CatalogArtist>>('/catalog/free-galleries/', { ...opts, query: { page_size } })
@@ -137,25 +148,18 @@ export const useSearch = (params: { q?: string; artist?: string; title?: string 
     retry: false,
   })
 
-/** Artistes « tendance » : classés par le nombre total de vues de leurs œuvres (l'API ne trie pas les artistes par vues). */
+/** Artistes « tendance » : les plus visités (tri par l'API) */
 export function useTrendingArtists(count = 6) {
-  const artists = useArtists({ page_size: 100 })
-  const works = useArtworks({ page_size: 100 })
-  const views = new Map<string, number>()
-  for (const w of works.data?.results ?? []) views.set(w.artist_id, (views.get(w.artist_id) ?? 0) + w.view_count)
-  const data = artists.data
-    ? [...artists.data.results].filter((a) => a.cover).sort((a, b) => (views.get(b.id) ?? 0) - (views.get(a.id) ?? 0)).slice(0, count)
-    : undefined
+  const artists = useArtists({ ordering: '-visits', page_size: count * 2 })
+  const data = artists.data ? artists.data.results.filter((a) => a.cover).slice(0, count) : undefined
   return { data, isPending: artists.isPending, isError: artists.isError }
 }
 
 /** Œuvres des galeries actuellement en visite gratuite */
-export function useFreeGalleryWorks() {
-  const galleries = useFreeGalleries(100)
-  const works = useArtworks({ page_size: 100 })
-  const free = new Set((galleries.data?.results ?? []).map((a) => a.id))
-  const data = galleries.data && works.data ? works.data.results.filter((w) => free.has(w.artist_id)) : undefined
-  return { data, galleries: galleries.data?.results, isPending: galleries.isPending || works.isPending, isError: galleries.isError || works.isError }
+export function useFreeGalleryWorks(page_size = 48) {
+  const galleries = useFreeGalleries(24)
+  const works = useArtworks({ free_gallery: true, page_size })
+  return { data: works.data?.results, galleries: galleries.data?.results, isPending: galleries.isPending || works.isPending, isError: galleries.isError || works.isError }
 }
 
 // --- Visites et dons --------------------------------------------------------------------
@@ -180,6 +184,25 @@ export const checkVisitAccess = (artist: string, token: string | null) =>
 
 export const startDonation = (body: { artist: string; amount: number; region: Region; method: PaymentMethod; message?: string } & Payer) =>
   api<PaymentStarted>('/payments/donations/', { method: 'POST', body, auth: false })
+
+/**
+ * Droit de visite : une galerie gratuite est ouverte sans appel (pour ne pas compter une visite
+ * à chaque affichage) ; une galerie payante exige un jeton de visite encore valide.
+ */
+export function useVisitAccess(artist: Pick<CatalogArtist, 'id' | 'free'> | undefined) {
+  const slug = artist?.id ?? ''
+  const token = slug ? getVisitToken(slug) : null
+  const query = useQuery({
+    queryKey: ['visit-access', slug],
+    queryFn: () => checkVisitAccess(slug, getVisitToken(slug)),
+    // Sans jeton, inutile d'interroger l'API : pas d'accès
+    enabled: !!artist && !artist.free && !!token,
+    staleTime: 60_000,
+    retry: false,
+  })
+  const hasAccess = !!artist && (artist.free || !!query.data?.access)
+  return { hasAccess, isChecking: !!artist && !artist.free && !!token && query.isPending, refetch: query.refetch }
+}
 
 export const isPaymentStarted = (r: VisitAccess | PaymentStarted): r is PaymentStarted => 'payment' in r
 

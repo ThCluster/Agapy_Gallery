@@ -15,8 +15,9 @@ function withResult(returnTo: string, reference: string, status: string): string
 }
 
 /**
- * Paiement simulé (développement uniquement) : remplace la page du prestataire pour TOUS les
- * paiements du site (ouverture, publication, visite, don, clip…). /paiement/simulation?ref=<référence>
+ * Paiement simulé : moyen de paiement officiel tant que le paiement en ligne réel n'est pas activé,
+ * pour TOUS les paiements du site (ouverture, publication, visite, don, clip…). /paiement/simulation?ref=<référence>
+ * Le retour passe par readPaymentReturn(), qui n'accepte qu'un chemin interne.
  */
 export function PaymentSimulationPage() {
   const { t, i18n } = useTranslation()

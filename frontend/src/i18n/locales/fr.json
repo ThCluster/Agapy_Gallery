@@ -101,7 +101,9 @@
       "offerText": "30 s à l’affiche pendant 24 h : {{ht}} HT, soit {{ttc}} sur facture. Sans abonnement ni engagement.",
       "offerCta": "Publier mon clip",
       "tvTitle": "AGAPY TV · en direct",
-      "tvText": "Colloques, formations, concerts : prochaine émission jeudi à 18 h"
+      "tvText": "Colloques, formations, concerts : prochaine émission jeudi à 18 h",
+      "placeholderTitle": "Votre clip ici",
+      "placeholderText": "Aucun clip à l’affiche pour le moment. Réservez l’une des {{max}} places : {{seconds}} s diffusées en boucle pendant 24 heures."
     },
     "how": {
       "eyebrow": "L’expérience",
@@ -143,9 +145,9 @@
       "both": "Visiter et donner",
       "gift": "don",
       "visitNote": {
-        "africa": "250 F CFA HT + TVA. 75 % reviennent à l’artiste.",
-        "europe": "Hors taxes. 75 % reviennent à l’artiste.",
-        "world": "Hors taxes. 75 % reviennent à l’artiste."
+        "africa": "TTC (250 F CFA HT + TVA 20 %). 75 % reviennent à l’artiste.",
+        "europe": "TTC (1 € HT + TVA 20 %). 75 % reviennent à l’artiste.",
+        "world": "TTC (1,5 $ HT + TVA 20 %). 75 % reviennent à l’artiste."
       },
       "donateNote": "de chaque don reviennent directement à l’artiste.",
       "bothNote": "Le geste complet : vous découvrez l’œuvre et soutenez son créateur.",
@@ -253,7 +255,9 @@
       "africa": "Afrique (F CFA)",
       "europe": "Europe (€)",
       "world": "Reste du monde ($)"
-    }
+    },
+    "mobileApps": "Applications mobiles",
+    "mobileSoon": "Bientôt disponibles sur iOS et Android"
   },
   "notFound": {
     "title": "Page introuvable",
@@ -352,8 +356,8 @@
       "visit": "Visiter la galerie",
       "visitNote": {
         "africa": "250 F CFA HT + TVA · 75 % pour l’artiste",
-        "europe": "Hors taxes · 75 % pour l’artiste",
-        "world": "Hors taxes · 75 % pour l’artiste"
+        "europe": "1 € HT + TVA · 75 % pour l’artiste",
+        "world": "1,5 $ HT + TVA · 75 % pour l’artiste"
       },
       "visitFreeNote": "Cet artiste ouvre sa galerie gratuitement",
       "donate": "Faire un don",
@@ -485,8 +489,8 @@
       "total": "Total à payer",
       "zone": {
         "africa": "Tarif Afrique ({{country}}).",
-        "europe": "Tarif Europe ({{country}}), hors taxes.",
-        "world": "Tarif international ({{country}}), hors taxes."
+        "europe": "Tarif Europe ({{country}}), TVA de 20 % incluse.",
+        "world": "Tarif international ({{country}}), TVA de 20 % incluse."
       },
       "method": "Moyen de paiement",
       "momo": "Mobile money",

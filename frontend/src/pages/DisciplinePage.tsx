@@ -9,6 +9,7 @@ import { formatSize } from '@/lib/format'
 import { displayPrice, PRICES, useRegion } from '@/lib/pricing'
 import type { PhotoKey } from '@/mocks/photos'
 import type { Discipline } from '@/types/catalog'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 /** Œuvre phare (illustration fixe de l'en-tête) de chaque discipline */
 const HERO: Record<Discipline, PhotoKey> = { peinture: 'art_a12', photographie: 'art_p3', sculpture: 'art_s1' }
@@ -20,6 +21,7 @@ type Sort = 'featured' | 'title' | 'artist'
 
 export function DisciplinePage({ discipline }: { discipline: Discipline }) {
   const { t, i18n } = useTranslation()
+  useDocumentTitle(t(`disciplinePage.${discipline}.title`))
   const region = useRegion((s) => s.region)
   const [access, setAccess] = useState<Access>('all')
   const [sort, setSort] = useState<Sort>('featured')

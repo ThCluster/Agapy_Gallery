@@ -56,7 +56,7 @@ export const startSignupPayment = (artist: string, method: 'momo' | 'card') =>
 // --- Compte connecté --------------------------------------------------------------------
 export const getMe = () => api<SessionUser>('/accounts/me/')
 
-/** Modification du profil : JSON, ou multipart si une photo est envoyée */
+/** Modification du profil : JSON, ou multipart si une photo est envoyée. `country` est en lecture seule côté API. */
 export const updateMe = (values: Record<string, unknown>) =>
   api<SessionUser>('/accounts/me/', {
     method: 'PATCH',
@@ -71,6 +71,8 @@ export interface PayoutInput {
   iban: string
   account_holder: string
   bank_name: string
+  /** Mot de passe actuel : obligatoire pour toute modification (codes required, password_incorrect) */
+  current_password: string
 }
 
 export const updatePayout = (values: Partial<PayoutInput>) => api<SessionUser>('/accounts/me/payout/', { method: 'PATCH', body: values })

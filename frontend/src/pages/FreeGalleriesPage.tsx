@@ -7,6 +7,7 @@ import { ArtworkCard, ArtworkCardSkeleton } from '@/components/ui/ArtworkCard'
 import { Img } from '@/components/ui/Img'
 import { villaPhoto } from '@/features/artist/villaPhotos'
 import { normalize } from '@/lib/search'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 const FILTERS = ['all', 'peinture', 'photographie', 'sculpture'] as const
 type Filter = (typeof FILTERS)[number]
@@ -14,6 +15,7 @@ type Filter = (typeof FILTERS)[number]
 /** Galeries en visite gratuite (cahier des charges, p. 9-10) : la gratuité peut être limitée dans le temps. */
 export function FreeGalleriesPage() {
   const { t, i18n } = useTranslation()
+  useDocumentTitle(`${t('freeGalleries.titleStart')} ${t('freeGalleries.titleEnd')}`)
   const [params] = useSearchParams()
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState(params.get('q') ?? '')

@@ -101,7 +101,9 @@
       "offerText": "30 s on screen for 24 h: {{ht}} excl. VAT, {{ttc}} invoiced. No subscription, no commitment.",
       "offerCta": "Publish my clip",
       "tvTitle": "AGAPY TV · live",
-      "tvText": "Talks, workshops, concerts: next show Thursday at 6 pm"
+      "tvText": "Talks, workshops, concerts: next show Thursday at 6 pm",
+      "placeholderTitle": "Your clip here",
+      "placeholderText": "No clip on screen right now. Book one of the {{max}} slots: {{seconds}} s played on a loop for 24 hours."
     },
     "how": {
       "eyebrow": "The experience",
@@ -143,9 +145,9 @@
       "both": "Visit and donate",
       "gift": "donation",
       "visitNote": {
-        "africa": "250 F CFA + VAT. 75% goes to the artist.",
-        "europe": "Excluding VAT. 75% goes to the artist.",
-        "world": "Excluding VAT. 75% goes to the artist."
+        "africa": "Incl. VAT (250 F CFA + 20% VAT). 75% goes to the artist.",
+        "europe": "Incl. VAT (€1 + 20% VAT). 75% goes to the artist.",
+        "world": "Incl. VAT ($1.50 + 20% VAT). 75% goes to the artist."
       },
       "donateNote": "of every donation goes straight to the artist.",
       "bothNote": "The full gesture: discover the work and support its creator.",
@@ -253,7 +255,9 @@
       "africa": "Africa (F CFA)",
       "europe": "Europe (€)",
       "world": "Rest of the world ($)"
-    }
+    },
+    "mobileApps": "Mobile apps",
+    "mobileSoon": "Coming soon on iOS and Android"
   },
   "notFound": {
     "title": "Page not found",
@@ -352,8 +356,8 @@
       "visit": "Visit the gallery",
       "visitNote": {
         "africa": "250 F CFA + VAT · 75% goes to the artist",
-        "europe": "Excluding VAT · 75% goes to the artist",
-        "world": "Excluding VAT · 75% goes to the artist"
+        "europe": "€1 + VAT · 75% goes to the artist",
+        "world": "$1.50 + VAT · 75% goes to the artist"
       },
       "visitFreeNote": "This artist opens their gallery for free",
       "donate": "Make a donation",
@@ -485,8 +489,8 @@
       "total": "Total to pay",
       "zone": {
         "africa": "Africa rate ({{country}}).",
-        "europe": "Europe rate ({{country}}), excluding VAT.",
-        "world": "International rate ({{country}}), excluding VAT."
+        "europe": "Europe rate ({{country}}), 20% VAT included.",
+        "world": "International rate ({{country}}), 20% VAT included."
       },
       "method": "Payment method",
       "momo": "Mobile money",

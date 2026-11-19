@@ -1,10 +1,10 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowUpRight, Bot, CheckCircle2, Search, ShieldCheck, TrainFront, XCircle } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { ArrowUpRight, Bot, CheckCircle2, Info, Lock, Search, ShieldCheck, TrainFront, XCircle } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useParams, useSearchParams } from 'react-router'
-import { checkVisitAccess, sendDonation, takePendingDonation, useArtist, useArtists } from '@/api/catalog'
-import { getPayment, getVisitToken, saveVisitToken } from '@/api/payments'
+import { Link, useLocation, useParams, useSearchParams } from 'react-router'
+import { sendDonation, takePendingDonation, useArtist, useArtists, useVisitAccess, type CatalogArtist, type CatalogArtwork } from '@/api/catalog'
+import { getPayment, saveVisitToken, type PaymentState } from '@/api/payments'
 import { Img } from '@/components/ui/Img'
 import { Reveal } from '@/components/ui/Reveal'
 import { ArtistHero } from '@/features/artist/ArtistHero'
@@ -15,14 +15,30 @@ import { SupportCard } from '@/features/artist/SupportCard'
 import { hallPhotos } from '@/features/artist/villaPhotos'
 import { ApiError, errorMessage } from '@/lib/api'
 import { displayPrice, PRICES, useRegion } from '@/lib/pricing'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 const SECTIONS = ['works', 'villa', 'about'] as const
 
-type Notice = { tone: 'success' | 'error'; text: string }
+type Notice = { tone: 'success' | 'error' | 'info'; text: string }
+
+const POLL_EVERY_MS = 2_000
+const POLL_FOR_MS = 60_000
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/** Statut réel d'un paiement : interroge l'API toutes les 2 s pendant 60 s tant qu'il est en attente */
+async function waitForPayment(ref: string, isCancelled: () => boolean): Promise<PaymentState | null> {
+  const deadline = Date.now() + POLL_FOR_MS
+  for (;;) {
+    const pay = await getPayment(ref)
+    if (pay.status !== 'pending' || Date.now() >= deadline) return pay
+    await wait(POLL_EVERY_MS)
+    if (isCancelled()) return null
+  }
+}
 
 /**
- * Retour de la page de paiement (?payment=<réf>&status=<statut>) : enregistre le jeton de visite,
- * enchaîne le don éventuellement choisi en même temps, affiche un message.
+ * Retour de la page de paiement (?payment=<réf>) : lit le statut réel auprès de l'API (jamais le
+ * ?status= de l'URL), enregistre le jeton de visite, enchaîne le don éventuel, affiche un message.
  */
 function usePaymentReturn(slug: string, setNotice: (n: Notice | null) => void) {
   const { t } = useTranslation()
@@ -30,6 +46,14 @@ function usePaymentReturn(slug: string, setNotice: (n: Notice | null) => void) {
   const queryClient = useQueryClient()
   const ref = params.get('payment')
   const handled = useRef<string | null>(null)
+  const unmounted = useRef(false)
+
+  useEffect(() => {
+    unmounted.current = false
+    return () => {
+      unmounted.current = true
+    }
+  }, [])
 
   useEffect(() => {
     if (!ref || !slug || handled.current === ref) return
@@ -43,8 +67,15 @@ function usePaymentReturn(slug: string, setNotice: (n: Notice | null) => void) {
         },
         { replace: true },
       )
-    getPayment(ref)
+    setNotice({ tone: 'info', text: t('catalog.payment.pending') })
+    waitForPayment(ref, () => unmounted.current)
       .then(async (pay) => {
+        if (!pay) return
+        if (pay.status === 'pending') {
+          // Toujours en attente : le don choisi est conservé
+          setNotice({ tone: 'info', text: t('catalog.payment.stillPending') })
+          return
+        }
         if (pay.status !== 'succeeded') {
           takePendingDonation(slug)
           setNotice({ tone: 'error', text: t('catalog.payment.failed') })
@@ -66,9 +97,44 @@ function usePaymentReturn(slug: string, setNotice: (n: Notice | null) => void) {
   }, [ref, slug, setParams, setNotice, queryClient, t])
 }
 
+/** Galerie payante sans droit de visite : deux vignettes floutées et l'appel à payer (cahier des charges, p. 11) */
+function LockedWorks({ artist, works, price, checking }: { artist: CatalogArtist; works: CatalogArtwork[]; price: string; checking: boolean }) {
+  const { t } = useTranslation()
+  const teasers = works.length > 2 ? works.slice(1, 3) : works.slice(0, 2)
+  return (
+    <div className="rounded-3xl border border-brand-green/10 bg-brand-mist/60 p-6 sm:p-8 dark:border-white/10 dark:bg-night-card">
+      {teasers.length > 0 && (
+        <div className="grid grid-cols-2 gap-4" aria-hidden>
+          {teasers.map((w) => (
+            <span key={w.id} className="relative block aspect-[4/5] overflow-hidden rounded-2xl bg-white p-2 dark:bg-night-field">
+              <span className="block h-full w-full overflow-hidden">
+                <Img src={w.image} alt="" className="h-full w-full scale-110 object-cover blur-xl" />
+              </span>
+              <span className="absolute inset-0 grid place-items-center">
+                <Lock className="size-7 text-white drop-shadow" />
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
+      <p className="eyebrow mt-6">{t('catalog.locked.eyebrow')}</p>
+      <h3 className="mt-2 text-2xl font-light tracking-tight text-brand-graphite dark:text-white">{t('catalog.locked.title', { name: artist.name })}</h3>
+      <p className="mt-3 max-w-2xl text-sm text-brand-ink dark:text-slate-300">
+        {checking ? t('catalog.locked.checking') : t('catalog.locked.text', { count: works.length, price })}
+      </p>
+      {!checking && (
+        <a href="#support" className="btn-primary mt-6 rounded-full px-6 py-3">
+          <Lock className="size-4" /> {t('catalog.locked.cta')}
+        </a>
+      )}
+    </div>
+  )
+}
+
 export function ArtistPage() {
   const { artistId = '' } = useParams()
   const { t, i18n } = useTranslation()
+  const queryClient = useQueryClient()
   const region = useRegion((s) => s.region)
   const [open, setOpen] = useState<number | null>(null)
   const close = useCallback(() => setOpen(null), [])
@@ -76,14 +142,17 @@ export function ArtistPage() {
   const { data: artist, isPending, error } = useArtist(artistId)
   const { data: list } = useArtists({ page_size: 12 })
   // Droit de visite d'une galerie payante : jeton de visite encore valide
-  const access = useQuery({
-    queryKey: ['visit-access', artistId],
-    queryFn: () => checkVisitAccess(artistId, getVisitToken(artistId)),
-    enabled: !!artist && !artist.free,
-    staleTime: 60_000,
-    retry: false,
-  })
+  const access = useVisitAccess(artist)
   usePaymentReturn(artistId, setNotice)
+  useDocumentTitle(artist?.name ?? (error ? t('artist.notFound.title') : null))
+  // Lien direct vers une section (ex. /artistes/<slug>#support depuis la villa 3D) : défiler une fois la page chargée
+  const { hash } = useLocation()
+  const loaded = !!artist
+  useEffect(() => {
+    if (!loaded || !hash) return
+    const id = window.setTimeout(() => document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView({ behavior: 'smooth' }), 50)
+    return () => window.clearTimeout(id)
+  }, [loaded, hash])
 
   if (isPending) {
     return (
@@ -120,9 +189,10 @@ export function ArtistPage() {
 
   const works = artist.artworks
   const halls = hallPhotos(artist.address)
-  const hasAccess = artist.free || !!access.data?.access
+  const hasAccess = access.hasAccess
   const others = (list?.results ?? []).filter((a) => a.id !== artist.id && a.cover).slice(0, 4)
   const visitLabel = artist.free ? t('artwork.free') : displayPrice(PRICES.visit, region, i18n.resolvedLanguage)
+  const toSupport = () => document.getElementById('support')?.scrollIntoView({ behavior: 'smooth' })
 
   return (
     <div className="pb-28 lg:pb-0">
@@ -133,10 +203,20 @@ export function ArtistPage() {
           <p
             role="status"
             className={`flex items-start gap-3 rounded-2xl p-4 text-sm ${
-              notice.tone === 'success' ? 'bg-brand-green/10 text-brand-green dark:text-emerald-400' : 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300'
+              notice.tone === 'success'
+                ? 'bg-brand-green/10 text-brand-green dark:text-emerald-400'
+                : notice.tone === 'info'
+                  ? 'bg-brand-mist text-brand-ink dark:bg-night-card dark:text-slate-300'
+                  : 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300'
             }`}
           >
-            {notice.tone === 'success' ? <CheckCircle2 className="size-5 shrink-0" /> : <XCircle className="size-5 shrink-0" />}
+            {notice.tone === 'success' ? (
+              <CheckCircle2 className="size-5 shrink-0" />
+            ) : notice.tone === 'info' ? (
+              <Info className="size-5 shrink-0" />
+            ) : (
+              <XCircle className="size-5 shrink-0" />
+            )}
             <span className="flex-1">{notice.text}</span>
             {notice.tone === 'success' && hasAccess && (
               <Link to={`/ville/${artist.id}`} className="link shrink-0 font-semibold">
@@ -168,7 +248,8 @@ export function ArtistPage() {
       <div className="mx-auto grid max-w-7xl gap-12 px-4 py-12 sm:px-6 lg:grid-cols-[1fr_380px]">
         <div className="min-w-0 space-y-20">
           <Reveal>
-            <EntranceWall artist={artist} work={works[0]} onOpen={() => setOpen(0)} />
+            {/* Le muret d'entrée reste visible sans droit de visite ; la visionneuse, non */}
+            <EntranceWall artist={artist} work={works[0]} onOpen={() => (hasAccess ? setOpen(0) : toSupport())} />
           </Reveal>
 
           {/* Œuvres */}
@@ -179,7 +260,11 @@ export function ArtistPage() {
                 <h2 className="mt-2 text-3xl font-light tracking-tight">{t('artist.worksTitle', { count: works.length })}</h2>
               </div>
             </div>
-            <ArtworkGrid works={works} onOpen={setOpen} />
+            {hasAccess ? (
+              <ArtworkGrid works={works} onOpen={setOpen} />
+            ) : (
+              <LockedWorks artist={artist} works={works} price={visitLabel} checking={access.isChecking} />
+            )}
           </section>
 
           {/* La villa */}
@@ -202,9 +287,15 @@ export function ArtistPage() {
                 <Bot className="size-6" />
               </span>
               <p className="flex-1 text-sm text-brand-ink dark:text-slate-300">{t('artist.villa.guide', { name: artist.name })}</p>
-              <Link to={`/ville/${artist.id}`} className="btn-action shrink-0 rounded-full px-5 py-2.5">
-                <TrainFront className="size-4" /> {t('artist.villa.cta')}
-              </Link>
+              {hasAccess ? (
+                <Link to={`/ville/${artist.id}`} className="btn-action shrink-0 rounded-full px-5 py-2.5">
+                  <TrainFront className="size-4" /> {t('artist.villa.cta')}
+                </Link>
+              ) : (
+                <a href="#support" className="btn-action shrink-0 rounded-full px-5 py-2.5">
+                  <Lock className="size-4" /> {t('catalog.locked.cta')}
+                </a>
+              )}
             </div>
           </section>
 
@@ -242,7 +333,10 @@ export function ArtistPage() {
               artist={artist}
               hasAccess={hasAccess}
               onPaid={(purpose) => {
-                if (purpose === 'visit') void access.refetch()
+                if (purpose === 'visit') {
+                  void queryClient.invalidateQueries({ queryKey: ['catalog', 'artist', artist.id] })
+                  void access.refetch()
+                }
                 setNotice({ tone: 'success', text: t(purpose === 'visit' ? 'catalog.payment.visitThanks' : 'catalog.payment.donationThanks') })
               }}
             />
@@ -290,7 +384,7 @@ export function ArtistPage() {
         </div>
       </div>
 
-      {open !== null && works.length > 0 && <ArtworkLightbox works={works} index={open} artist={artist} onChange={setOpen} onClose={close} />}
+      {hasAccess && open !== null && works.length > 0 && <ArtworkLightbox works={works} index={open} artist={artist} onChange={setOpen} onClose={close} />}
     </div>
   )
 }

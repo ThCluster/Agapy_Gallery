@@ -47,6 +47,9 @@
     "file_too_large": "Fichier trop volumineux.",
     "contact_required": "Indiquez un téléphone ou un e-mail.",
     "invalid_token": "Lien invalide ou expiré.",
-    "invalid_format": "Format invalide."
+    "invalid_format": "Format invalide.",
+    "payouts_disabled": "Les retraits seront ouverts quand le paiement en ligne réel sera activé.",
+    "file_type": "Type de fichier non accepté.",
+    "image_too_large": "Image trop grande."
   }
 }

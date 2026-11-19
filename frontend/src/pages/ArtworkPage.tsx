@@ -1,13 +1,15 @@
-import { ArrowLeft, MapPin, Ruler, ShieldCheck, TrainFront } from 'lucide-react'
+import { ArrowLeft, Lock, MapPin, Ruler, ShieldCheck, TrainFront } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
-import { useArtist, useArtwork, workRatio } from '@/api/catalog'
+import { useArtist, useArtwork, useVisitAccess, workRatio } from '@/api/catalog'
 import { Img } from '@/components/ui/Img'
 import { Presented } from '@/components/ui/Presented'
+import { ExcerptPlayer } from '@/features/artist/ExcerptPlayer'
 import { SupportCard } from '@/features/artist/SupportCard'
 import { errorMessage } from '@/lib/api'
 import { disciplineOf } from '@/lib/discipline'
 import { formatSize } from '@/lib/format'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 /** Page d'une œuvre : présentation, informations, droits d'auteur et soutien à l'artiste. */
 export function ArtworkPage() {
@@ -16,6 +18,9 @@ export function ArtworkPage() {
   const workQuery = useArtwork(artworkId)
   const work = workQuery.data
   const { data: artist, isPending: artistPending } = useArtist(work?.artist_id ?? '')
+  // Galerie payante : l'œuvre n'est montrée en grand qu'avec un droit de visite
+  const access = useVisitAccess(artist)
+  useDocumentTitle(work ? `${work.title} — ${work.artist_name}` : workQuery.isError ? t('search.page.artworkNotFound') : null)
 
   if (workQuery.isPending || (work && artistPending)) {
     return (
@@ -45,6 +50,7 @@ export function ArtworkPage() {
   const works = artist.artworks
   const discipline = disciplineOf(work)
   const others = works.filter((w) => w.id !== work.id).slice(0, 4)
+  const hasAccess = access.hasAccess
 
   return (
     <>
@@ -58,9 +64,28 @@ export function ArtworkPage() {
             {/* L'œuvre accrochée au mur, sous un halo de lumière */}
             <div className="relative flex min-h-[420px] items-center justify-center overflow-hidden rounded-3xl bg-[#f4f1ec] px-6 py-14 dark:bg-night-card">
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgb(255_255_255/0.95),transparent_65%)]" />
-              <div className="relative">
-                <Presented discipline={discipline} src={work.image} size={workRatio(work)} alt={`${work.title}, ${artist.name}`} large />
-              </div>
+              {hasAccess ? (
+                <div className="relative">
+                  <Presented discipline={discipline} src={work.image} size={workRatio(work)} alt={`${work.title}, ${artist.name}`} large />
+                </div>
+              ) : (
+                <div className="relative w-full max-w-md text-center">
+                  <span className="relative mx-auto block aspect-[4/5] w-3/4 overflow-hidden bg-white p-3 shadow-[0_30px_70px_-30px_rgb(30_46_41/0.5)]" aria-hidden>
+                    <span className="block h-full w-full overflow-hidden">
+                      <Img src={work.image} alt="" className="h-full w-full scale-110 object-cover blur-xl" />
+                    </span>
+                    <span className="absolute inset-0 grid place-items-center">
+                      <Lock className="size-8 text-white drop-shadow" />
+                    </span>
+                  </span>
+                  <p className="mt-6 text-sm text-brand-ink dark:text-slate-300">{access.isChecking ? t('catalog.locked.checking') : t('catalog.locked.artwork')}</p>
+                  {!access.isChecking && (
+                    <a href="#support" className="btn-primary mt-4 rounded-full px-6 py-3">
+                      <Lock className="size-4" /> {t('catalog.locked.cta')}
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>
@@ -102,9 +127,16 @@ export function ArtworkPage() {
                   <ShieldCheck className="size-4 text-brand-green" /> {t('artist.protectedBy', { office: work.copyright_office || artist.copyright_office })}
                 </p>
               )}
-              <Link to={`/ville/${artist.id}`} className="btn-action mt-6 rounded-full px-6 py-3">
-                <TrainFront className="size-4" /> {t('artwork.seeInVilla')}
-              </Link>
+              {hasAccess && work.excerpt && <ExcerptPlayer src={work.excerpt} title={work.title} className="mt-6" />}
+              {hasAccess ? (
+                <Link to={`/ville/${artist.id}`} className="btn-action mt-6 rounded-full px-6 py-3">
+                  <TrainFront className="size-4" /> {t('artwork.seeInVilla')}
+                </Link>
+              ) : (
+                <a href="#support" className="btn-action mt-6 rounded-full px-6 py-3">
+                  <Lock className="size-4" /> {t('catalog.locked.cta')}
+                </a>
+              )}
             </div>
           </div>
         </div>
@@ -118,7 +150,7 @@ export function ArtworkPage() {
               {others.map((w) => (
                 <li key={w.id}>
                   <Link to={`/oeuvres/${w.id}`} className="group block">
-                    <span className="block transition duration-500 group-hover:-translate-y-1">
+                    <span className={`block transition duration-500 group-hover:-translate-y-1 ${hasAccess ? '' : 'overflow-hidden [&_img]:blur-lg'}`}>
                       <Presented discipline={disciplineOf(w)} src={w.image} size={workRatio(w)} alt={w.title} />
                     </span>
                     <span className="mt-3 block text-sm font-semibold text-brand-graphite group-hover:text-brand-green dark:text-white">{w.title}</span>
@@ -131,8 +163,8 @@ export function ArtworkPage() {
             <p className="mt-4 text-sm text-gray-500">{t('artwork.onlyOne')}</p>
           )}
         </div>
-        <aside className="lg:sticky lg:top-28 lg:self-start">
-          <SupportCard artist={artist} />
+        <aside id="support" className="scroll-mt-28 lg:sticky lg:top-28 lg:self-start">
+          <SupportCard artist={artist} hasAccess={hasAccess} onPaid={() => void access.refetch()} />
         </aside>
       </section>
     </>

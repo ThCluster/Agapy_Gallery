@@ -3,16 +3,19 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { isPaymentStarted, PENDING_DONATION_KEY, sendDonation, startVisit, type CatalogArtist, type PendingDonation } from '@/api/catalog'
-import { followPaymentAction, type PaymentMethod } from '@/api/payments'
+import { followPaymentAction, getPayment, saveVisitToken, type PaymentMethod } from '@/api/payments'
 import { errorMessage } from '@/lib/api'
 import { DONATION_ARTIST_SHARE, formatPrice, PRICES, useRegion, withVat, type Currency, type Region } from '@/lib/pricing'
 
 /** Montants de don proposés selon la zone */
-const DONATIONS: Record<Region, { currency: Currency; amounts: number[] }> = {
-  africa: { currency: 'XOF', amounts: [500, 1000, 2000, 5000] },
-  europe: { currency: 'EUR', amounts: [2, 5, 10, 20] },
-  world: { currency: 'USD', amounts: [2, 5, 10, 20] },
+const DONATIONS: Record<Region, { currency: Currency; amounts: number[]; min: number; max: number }> = {
+  africa: { currency: 'XOF', amounts: [500, 1000, 2000, 5000], min: 100, max: 50_000 },
+  europe: { currency: 'EUR', amounts: [2, 5, 10, 20], min: 1, max: 100 },
+  world: { currency: 'USD', amounts: [2, 5, 10, 20], min: 1, max: 100 },
 }
+
+/** Montant saisi : entier positif en F CFA, deux décimales au plus en € / $ */
+const AMOUNT_FORMAT: Record<Currency, RegExp> = { XOF: /^\d+$/, EUR: /^\d+([.,]\d{1,2})?$/, USD: /^\d+([.,]\d{1,2})?$/ }
 
 /**
  * Les choix du visiteur (cahier des charges, p. 11) : visiter la galerie,
@@ -41,16 +44,31 @@ export function SupportCard({ artist, hasAccess = false, onPaid }: Props) {
   const [amount, setAmount] = useState(DONATIONS[region].amounts[1])
   const [custom, setCustom] = useState('')
 
-  const { currency, amounts } = DONATIONS[region]
-  const visitPrice = PRICES.visit[region]
-  // Prix TTC pour l'Afrique (seule zone où la TVA est précisée)
-  const visitAmount = free ? 0 : region === 'africa' ? withVat(visitPrice.amount) : visitPrice.amount
-  const donation = donate ? Number(custom) || amount : 0
+  const { currency, amounts, min, max } = DONATIONS[region]
+  // Prix TTC : le backend facture la TVA (20 %) dans toutes les zones
+  const visitAmount = free ? 0 : withVat(PRICES.visit[region].amount)
+  const customText = custom.trim()
+  const customAmount = customText ? Number(customText.replace(',', '.')) : NaN
+  const donation = donate ? (customText ? (Number.isFinite(customAmount) ? customAmount : 0) : amount) : 0
   const total = (visit ? visitAmount : 0) + donation
   const money = (n: number) => formatPrice({ amount: n, currency }, lng)
 
+  /** Message d'erreur si le don saisi est invalide, sinon null */
+  const donationError = (): string | null => {
+    if (!donate || !customText) return null
+    if (!AMOUNT_FORMAT[currency].test(customText))
+      return t('catalog.payment.donationFormat', { rule: t(currency === 'XOF' ? 'catalog.payment.donationInteger' : 'catalog.payment.donationDecimals') })
+    if (!(customAmount >= min && customAmount <= max)) return t('catalog.payment.donationRange', { min: money(min), max: money(max) })
+    return null
+  }
+
   const submit = async () => {
     setError(null)
+    const invalid = donationError()
+    if (invalid) {
+      setError(invalid)
+      return
+    }
     if (free && visit && !donation) {
       navigate(`/ville/${artist.id}`)
       return
@@ -69,6 +87,9 @@ export function SupportCard({ artist, hasAccess = false, onPaid }: Props) {
           if (!gift) return navigate(`/ville/${artist.id}`)
         } else if (followPaymentAction(res, `/artistes/${artist.id}`)) {
           sessionStorage.removeItem(PENDING_DONATION_KEY)
+          // Payé sans redirection (Compte d'Avoir) : récupérer le jeton de visite
+          const pay = await getPayment(res.payment.reference)
+          if (pay.visit?.token) saveVisitToken(artist.id, pay.visit.token, pay.visit.expires_at)
           onPaid?.('visit')
         } else return
         if (!gift) return
@@ -139,14 +160,17 @@ export function SupportCard({ artist, hasAccess = false, onPaid }: Props) {
             <label className="col-span-4">
               <span className="sr-only">{t('artist.support.customAmount')}</span>
               <input
-                type="number"
-                min={1}
-                inputMode="numeric"
+                type="text"
+                inputMode={currency === 'XOF' ? 'numeric' : 'decimal'}
+                aria-describedby="donation-range"
                 value={custom}
                 onChange={(e) => setCustom(e.target.value)}
                 placeholder={t('artist.support.customAmount')}
                 className="field"
               />
+              <span id="donation-range" className="mt-1 block text-xs text-gray-500">
+                {t('catalog.payment.donationRange', { min: money(min), max: money(max) })}
+              </span>
             </label>
           </div>
         )}

@@ -1,12 +1,11 @@
-import { getArtist } from '@/mocks/artistProfiles'
-import type { Artwork } from '@/types/catalog'
+import { getArtist, listArtists, type CatalogArtwork } from '@/api/catalog'
+import { ApiError } from '@/lib/api'
+import { getArtist as getMockArtist } from '@/mocks/artistProfiles'
+import type { Artwork as MockArtwork } from '@/types/catalog'
 import { TEMPLATES } from './templates'
 import type { FrameKind, Hanging, VillaConfig } from './types'
 
-/**
- * Fiches de villa d'exemple. En production, elles viendront de Django
- * (GET /api/villas/<artistId>/) après validation par l'équipe AGAPY.
- */
+/** Fiches de villa de démonstration, utilisées seulement si l'API ne répond pas */
 const VILLAS: Record<string, Omit<VillaConfig, 'artistName' | 'address'>> = {
   'awa-kone': {
     artistId: 'awa-kone',
@@ -16,7 +15,7 @@ const VILLAS: Record<string, Omit<VillaConfig, 'artistName' | 'address'>> = {
     welcome: 'Bonjour et bienvenue ! Je suis Awa Koné. Entrez, la lumière de la verrière est la plus belle pour regarder mes toiles. Suivez-moi.',
     hangings: [
       {
-        slot: 'back-1', artworkId: 'lumiere-lagune', title: 'Lumière de la lagune', technique: 'Acrylique sur toile', size: [120, 90], photo: 'art_a1', frame: 'walnut',
+        slot: 'back-1', artworkId: 'lumiere-lagune', title: 'Lumière de la lagune', technique: 'Acrylique sur toile', size: [120, 90], photo: 'art_a1', frame: 'wood',
         comment: 'J’ai peint cette toile au bord de la lagune Ébrié, à l’aube. Le couteau laisse la matière vibrer comme l’eau sous le soleil.',
       },
       {
@@ -24,7 +23,7 @@ const VILLAS: Record<string, Omit<VillaConfig, 'artistName' | 'address'>> = {
         comment: 'Quand l’harmattan souffle, le ciel d’Abidjan devient bleu poudré. J’ai voulu garder cette lumière voilée, presque blanche.',
       },
       {
-        slot: 'back-3', artworkId: 'saison-pluies', title: 'Saison des pluies', technique: 'Acrylique sur toile', size: [100, 75], photo: 'art_a5', frame: 'walnut',
+        slot: 'back-3', artworkId: 'saison-pluies', title: 'Saison des pluies', technique: 'Acrylique sur toile', size: [100, 75], photo: 'art_a5', frame: 'wood',
         comment: 'Les verts profonds et les traits sombres, ce sont les orages de juin. La toile est encore humide de cette saison.',
       },
       {
@@ -40,7 +39,7 @@ const VILLAS: Record<string, Omit<VillaConfig, 'artistName' | 'address'>> = {
         comment: 'Chaque créature vient d’un conte que me racontait ma grand-mère. Cherchez le poisson : il guide les enfants perdus.',
       },
       {
-        slot: 'front-1', artworkId: 'lagune-bleue', title: 'Lagune bleue', technique: 'Acrylique sur toile', size: [100, 100], photo: 'art_a4', frame: 'walnut',
+        slot: 'front-1', artworkId: 'lagune-bleue', title: 'Lagune bleue', technique: 'Acrylique sur toile', size: [100, 100], photo: 'art_a4', frame: 'wood',
         comment: 'Une toile plus calme, peinte après une longue maladie. Le bleu m’a soignée.',
       },
     ],
@@ -78,27 +77,52 @@ const VILLAS: Record<string, Omit<VillaConfig, 'artistName' | 'address'>> = {
   },
 }
 
-/** Cadre proposé par défaut selon la technique */
-function defaultFrame(work: Artwork): FrameKind {
+const FRAME_IDS: FrameKind[] = ['wood', 'gold', 'black', 'white', 'none']
+
+/** Œuvre à accrocher, quelle que soit sa source (API ou démonstration) */
+interface Hangable {
+  id: string
+  title: string
+  technique: string
+  size: [number, number]
+  image?: string
+  photo?: MockArtwork['photo']
+  frame?: string
+  comment?: string
+}
+
+/** Cadre choisi par l'artiste, sinon un cadre proposé selon la technique */
+function frameOf(work: Hangable): FrameKind {
+  if (work.frame && (FRAME_IDS as string[]).includes(work.frame)) return work.frame as FrameKind
   const t = work.technique.toLowerCase()
   if (t.includes('photo')) return 'black'
   if (t.includes('sculpture')) return 'white'
-  return 'walnut'
+  return 'wood'
 }
 
 /**
  * Accrochage automatique : la plus grande œuvre en paysage va au mur d'honneur,
  * les autres suivent le tour du hall. Utilisé tant que l'artiste n'a pas composé sa villa.
  */
-export function autoHang(works: Artwork[]): Hanging[] {
+export function autoHang(works: Hangable[]): Hanging[] {
   const slots = TEMPLATES.lagune.slots
   const feature = slots.find((s) => s.feature)
   const others = slots.filter((s) => !s.feature)
   const byArea = [...works].sort((a, b) => b.size[0] * b.size[1] - a.size[0] * a.size[1])
   const star = byArea.find((w) => w.size[1] >= w.size[0])
   const hangings: Hanging[] = []
-  const place = (work: Artwork, slot: string) =>
-    hangings.push({ slot, artworkId: work.id, title: work.title, technique: work.technique, size: work.size, photo: work.photo, frame: defaultFrame(work) })
+  const place = (work: Hangable, slot: string) =>
+    hangings.push({
+      slot,
+      artworkId: work.id,
+      title: work.title,
+      technique: work.technique,
+      size: work.size,
+      image: work.image,
+      photo: work.photo,
+      frame: frameOf(work),
+      comment: work.comment || undefined,
+    })
 
   if (star && feature) place(star, feature.id)
   works
@@ -110,38 +134,101 @@ export function autoHang(works: Artwork[]): Hanging[] {
   return hangings.sort((a, b) => order.indexOf(a.slot) - order.indexOf(b.slot))
 }
 
+/**
+ * Les textures WebGL exigent CORS : une image servie par l'hôte de l'API (ex. http://127.0.0.1:8010/media/…)
+ * est refusée depuis le site. On la charge par le même chemin sur l'origine du site (proxy /media).
+ */
+function sameOriginMedia(url: string | null | undefined): string | undefined {
+  if (!url) return undefined
+  try {
+    const u = new URL(url, window.location.origin)
+    return u.pathname.startsWith('/media/') ? u.pathname + u.search : url
+  } catch {
+    return undefined
+  }
+}
+
+const fromApi = (w: CatalogArtwork): Hangable => ({
+  id: w.id,
+  title: w.title,
+  technique: w.technique,
+  size: w.size[0] > 0 && w.size[1] > 0 ? w.size : [100, 80],
+  image: sameOriginMedia(w.image),
+  frame: w.frame,
+  comment: w.summary,
+})
+
+/** Villa de démonstration (données de maquette) */
+function mockVilla(artistId: string): VillaConfig | null {
+  const found = getMockArtist(artistId)
+  if (!found) return null
+  const { artist, works } = found
+  const custom = VILLAS[artistId]
+  if (custom) return { ...custom, artistName: artist.name, address: artist.address, free: true }
+  if (works.length === 0) return null
+  return {
+    artistId,
+    artistName: artist.name,
+    address: artist.address,
+    template: 'lagune',
+    wallTone: 'blanc',
+    light: 'midi',
+    hangings: autoHang(works),
+    auto: true,
+    free: true,
+  }
+}
+
+/** Villa d'un artiste réel : profil public et œuvres publiées (images /media/…) */
+async function apiVilla(artistId: string): Promise<VillaConfig | null> {
+  const artist = await getArtist(artistId)
+  const works = artist.artworks.filter((w) => w.image)
+  if (works.length === 0) return null
+  return {
+    artistId: artist.id,
+    artistName: artist.name,
+    address: artist.address,
+    template: 'lagune',
+    wallTone: 'blanc',
+    light: 'midi',
+    hangings: autoHang(works.map(fromApi)),
+    auto: true,
+    free: artist.free,
+  }
+}
+
 const cache = new Map<string, Promise<VillaConfig | null>>()
 
 /**
- * Fiche de villa d'un artiste. Sans fiche composée, la villa est générée à partir de ses œuvres publiées.
- * Renvoie la même promesse à chaque appel (nécessaire pour `use()` de React).
+ * Fiche de villa d'un artiste, construite à partir de l'API. Les données de démonstration ne
+ * servent qu'en repli, si l'API ne répond pas. Renvoie la même promesse à chaque appel (`use()` de React).
  */
 export function getVilla(artistId: string): Promise<VillaConfig | null> {
   let p = cache.get(artistId)
   if (!p) {
-    p = Promise.resolve().then(() => {
-      // TODO API : remplacer par fetch(`/api/villas/${artistId}/`)
-      const found = getArtist(artistId)
-      if (!found) return null
-      const { artist, works } = found
-      const custom = VILLAS[artistId]
-      if (custom) return { ...custom, artistName: artist.name, address: artist.address }
-      if (works.length === 0) return null
-      return {
-        artistId,
-        artistName: artist.name,
-        address: artist.address,
-        template: 'lagune',
-        wallTone: 'blanc',
-        light: 'midi',
-        hangings: autoHang(works),
-        auto: true,
-      } satisfies VillaConfig
+    p = apiVilla(artistId).catch((e: unknown) => {
+      // Artiste inconnu : pas de villa ; API injoignable : données de démonstration
+      if (e instanceof ApiError && e.status === 404) return null
+      return mockVilla(artistId)
     })
     cache.set(artistId, p)
   }
   return p
 }
 
-/** Villa ouverte depuis les boutons « Visiter » sans artiste précis */
+/** Villa de démonstration ouverte si l'API est injoignable */
 export const VILLA_OF_THE_WEEK = 'awa-kone'
+
+let weekly: Promise<string> | null = null
+
+/** Villa ouverte depuis les boutons « Visiter » sans artiste précis : la plus visitée (gratuite de préférence) */
+export function getVillaOfTheWeek(): Promise<string> {
+  weekly ??= listArtists({ ordering: '-visits', page_size: 12 })
+    .then((page) => {
+      const withWorks = page.results.filter((a) => a.artwork_count > 0)
+      // Une galerie gratuite de préférence : tout le monde peut y entrer
+      return (withWorks.find((a) => a.free) ?? withWorks[0] ?? page.results[0])?.id ?? VILLA_OF_THE_WEEK
+    })
+    .catch(() => VILLA_OF_THE_WEEK)
+  return weekly
+}

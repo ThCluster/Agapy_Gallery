@@ -1,5 +1,5 @@
 import { Building2, Check, CreditCard, ImagePlus, Landmark, Loader2, LocateFixed, Smartphone, User, UserRound } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useFormContext, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
@@ -140,10 +140,16 @@ export function StepContact() {
 
   // Aperçu de la photo choisie (l'adresse temporaire est libérée quand la photo change)
   const file = photo?.[0]
-  const preview = useMemo(() => (file ? URL.createObjectURL(file) : null), [file])
-  useEffect(() => () => {
-    if (preview) URL.revokeObjectURL(preview)
-  }, [preview])
+  // Créée et révoquée dans le même effet : correct même quand StrictMode monte l'effet deux fois
+  const [previewState, setPreview] = useState<{ file: File; url: string } | null>(null)
+  useEffect(() => {
+    if (!file) return
+    const url = URL.createObjectURL(file)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- adresse temporaire (ressource externe) créée et révoquée dans le même effet
+    setPreview({ file: file, url })
+    return () => URL.revokeObjectURL(url)
+  }, [file])
+  const preview = file && previewState?.file === file ? previewState.url : null
 
   const locate = () => {
     if (!navigator.geolocation) return setGpsError(true)
@@ -169,7 +175,7 @@ export function StepContact() {
         <Field id="phone" label={t('signup.fields.phone')} error={err('phone')} hint={t('signup.fields.phoneHint')} className="sm:col-span-2">
           <PhoneInput id="phone" country={phoneCountry} countryField={register('phoneCountry')} numberField={register('phone')} hasError={!!err('phone')} />
         </Field>
-        <Field id="email" label={t('signup.fields.email')} error={err('email')} hint={t('signup.fields.emailHint')} className="sm:col-span-2">
+        <Field id="email" label={t('signup.fields.email')} error={err('email')} hint={t('auth.signup.emailHint')} className="sm:col-span-2">
           <input id="email" type="email" autoComplete="email" {...register('email')} className={inputClass(!!err('email'))} placeholder="nom@exemple.com" />
         </Field>
 
@@ -330,7 +336,7 @@ export function StepPayment() {
   const lng = i18n.resolvedLanguage
   const region = regionOf(country)
   const fee = PRICES.signup[region]
-  const showVat = region === 'africa' // TVA précisée au cahier des charges pour l'Afrique
+  const showVat = true // TVA (20 %) facturée dans toutes les zones par le backend
   const vat = { ...fee, amount: fee.amount * VAT_RATE }
   const total = showVat ? { ...fee, amount: withVat(fee.amount) } : fee
 

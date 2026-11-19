@@ -1,4 +1,4 @@
-import { Apple, ArrowUp, Loader2, Play } from 'lucide-react'
+import { ArrowUp, Loader2, Smartphone } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
@@ -118,26 +118,12 @@ export function SiteFooter() {
                 </p>
               )}
             </form>
-            {/* Applications mobiles (téléchargement 100 F CFA) */}
+            {/* Applications mobiles : pas encore publiées sur les magasins d'applications */}
             <div>
-              <p className="mb-2 text-sm font-bold">{t('footer.apps')}</p>
-              <div className="flex flex-wrap gap-2">
-                {(['appStore', 'googlePlay'] as const).map((store) => (
-                  <a
-                    key={store}
-                    href="#"
-                    onClick={(e) => e.preventDefault()}
-                    className="flex items-center gap-2 rounded-lg bg-black/40 px-3 py-2 ring-1 ring-white/20 hover:bg-black/60"
-                  >
-                    {store === 'appStore' ? <Apple className="size-5" /> : <Play className="size-5" />}
-                    <span className="leading-tight">
-                      <span className="block text-[10px] text-white/70">{t(`footer.${store}Small`)}</span>
-                      <span className="block text-sm font-semibold">{t(`footer.${store}`)}</span>
-                    </span>
-                  </a>
-                ))}
-              </div>
-              <p className="mt-2 text-xs text-white/60">{t('footer.appsPrice')}</p>
+              <p className="mb-2 text-sm font-bold">{t('footer.mobileApps')}</p>
+              <p className="flex items-center gap-2 rounded-lg bg-black/25 px-3 py-2 text-sm text-white/80 ring-1 ring-white/15" aria-disabled="true">
+                <Smartphone className="size-5 shrink-0" /> {t('footer.mobileSoon')}
+              </p>
             </div>
             {/* Zone tarifaire : prix en F CFA, en € ou en $ */}
             <label className="block">

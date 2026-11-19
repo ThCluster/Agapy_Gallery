@@ -1,25 +1,19 @@
 import { useMutation } from '@tanstack/react-query'
 import { CheckCircle2, Loader2, MailX } from 'lucide-react'
-import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router'
 import { unsubscribeNewsletter } from '@/api/site'
 import { errorMessage } from '@/lib/api'
 
-/** Désinscription de la newsletter depuis le lien reçu par e-mail (/newsletter/desinscription?token=…). */
+/**
+ * Désinscription de la newsletter depuis le lien reçu par e-mail (/newsletter/desinscription?token=…).
+ * Rien n'est envoyé au chargement (les antivirus de messagerie ouvrent les liens) : l'abonné confirme d'un clic.
+ */
 export function NewsletterUnsubscribePage() {
   const { t } = useTranslation()
   const [params] = useSearchParams()
   const token = params.get('token') ?? ''
   const mutation = useMutation({ mutationFn: unsubscribeNewsletter })
-  const sent = useRef(false)
-
-  // Un seul envoi, même si React monte la page deux fois en développement
-  useEffect(() => {
-    if (!token || sent.current) return
-    sent.current = true
-    mutation.mutate(token)
-  }, [token, mutation])
 
   const error = !token ? t('content.newsletter.missingToken') : mutation.isError ? errorMessage(mutation.error, 'token') : null
 
@@ -40,10 +34,19 @@ export function NewsletterUnsubscribePage() {
               <h1 className="mt-4 text-2xl font-light tracking-tight text-brand-graphite dark:text-white">{t('content.newsletter.doneTitle')}</h1>
               <p className="mt-2 text-gray-500 dark:text-slate-400">{t('content.newsletter.doneText')}</p>
             </div>
-          ) : (
+          ) : mutation.isPending ? (
             <div role="status" className="flex flex-col items-center gap-3 text-gray-500">
               <Loader2 className="size-8 animate-spin text-brand-orange" />
               <h1 className="text-lg">{t('content.newsletter.pending')}</h1>
+            </div>
+          ) : (
+            <div>
+              <MailX className="mx-auto size-12 text-brand-orange" />
+              <h1 className="mt-4 text-2xl font-light tracking-tight text-brand-graphite dark:text-white">{t('auth.newsletter.confirm')}</h1>
+              <p className="mt-2 text-gray-500 dark:text-slate-400">{t('auth.newsletter.confirmText')}</p>
+              <button type="button" onClick={() => mutation.mutate(token)} className="btn-primary mt-6 rounded-full px-6 py-3">
+                {t('auth.newsletter.confirm')}
+              </button>
             </div>
           )}
           <Link to="/" className="btn-secondary mt-8 rounded-full px-5 py-2.5">

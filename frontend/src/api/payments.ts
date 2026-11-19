@@ -4,10 +4,12 @@
  *
  * Après la création d'un paiement, le backend renvoie `{ payment, action }` :
  * - action.status === 'succeeded' : payé tout de suite (Compte d'Avoir) ;
- * - action.checkout_url : rediriger vers la page du prestataire. En développement, c'est
- *   /paiement/simulation?ref=… (page SimulationPage) qui confirme ou refuse le paiement.
+ * - action.checkout_url : adresse RELATIVE de la page de paiement, aujourd'hui
+ *   /paiement/simulation?ref=… (PaymentSimulationPage) qui confirme ou refuse le paiement.
+ *   Une URL absolue n'est suivie que si elle est de même origine (pas encore de prestataire externe).
  */
 import { api } from '@/lib/api'
+import { safeInternalPath } from '@/lib/safePath'
 
 export type PaymentMethod = 'card' | 'momo' | 'wallet'
 export type PaymentStatus = 'pending' | 'succeeded' | 'failed' | 'cancelled'
@@ -57,23 +59,25 @@ const RETURN_KEY = 'agapy-payment-return'
  */
 export function followPaymentAction({ payment, action }: PaymentStarted, returnTo: string): boolean {
   if (action.status === 'succeeded' || payment.status === 'succeeded') return true
+  if (!action.checkout_url) return false
+  // Seule une page du site est acceptée (chemin relatif, ou URL absolue de même origine)
+  const checkout = safeInternalPath(action.checkout_url, '')
+  if (!checkout) throw new Error(`Adresse de paiement refusée : ${action.checkout_url}`)
   try {
-    sessionStorage.setItem(RETURN_KEY, JSON.stringify({ ref: payment.reference, returnTo }))
+    // Chemin seul (sans origine) : le retour marche que le site soit ouvert sur localhost ou 127.0.0.1
+    sessionStorage.setItem(RETURN_KEY, JSON.stringify({ ref: payment.reference, returnTo: safeInternalPath(returnTo) }))
   } catch {
     // stockage indisponible : la page de simulation reviendra à l'accueil
   }
-  if (action.checkout_url) {
-    const url = new URL(action.checkout_url, window.location.origin)
-    // En développement, la page de simulation est servie par le frontend lui-même
-    window.location.assign(url.origin === window.location.origin ? url.pathname + url.search : url.toString())
-  }
+  window.location.assign(checkout)
   return false
 }
 
+/** Page où revenir après le paiement `reference` : toujours un chemin interne (repli : accueil) */
 export function readPaymentReturn(reference: string): string {
   try {
-    const saved = JSON.parse(sessionStorage.getItem(RETURN_KEY) ?? 'null') as { ref: string; returnTo: string } | null
-    if (saved?.ref === reference) return saved.returnTo
+    const saved = JSON.parse(sessionStorage.getItem(RETURN_KEY) ?? 'null') as { ref?: unknown; returnTo?: unknown } | null
+    if (saved?.ref === reference && typeof saved.returnTo === 'string') return safeInternalPath(saved.returnTo)
   } catch {
     // ignore
   }

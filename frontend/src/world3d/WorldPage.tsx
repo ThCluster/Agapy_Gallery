@@ -3,11 +3,13 @@ import { Canvas } from '@react-three/fiber'
 import { ArrowLeft, ChevronLeft, ChevronRight, Gift, Move3d, Pause, Play, Sparkles, Volume2, VolumeX } from 'lucide-react'
 import { Suspense, use, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useParams } from 'react-router'
+import { Link, Navigate, useParams } from 'react-router'
+import { useVisitAccess } from '@/api/catalog'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 import { buildTour } from './villa/tour'
 import type { VillaConfig } from './villa/types'
 import { VillaScene, type Quality } from './villa/VillaScene'
-import { getVilla, VILLA_OF_THE_WEEK } from './villa/villas'
+import { getVilla, getVillaOfTheWeek } from './villa/villas'
 
 /** Durée d'un arrêt pendant la visite automatique */
 const STOP_MS = 11_000
@@ -55,17 +57,33 @@ function NoVilla() {
  * Le moteur est commun ; la fiche de villa (murs, lumière, accrochage, commentaires) vient de l'artiste.
  */
 export default function WorldPage() {
-  const { artistId = VILLA_OF_THE_WEEK } = useParams()
+  const { artistId } = useParams()
   return (
     <Suspense fallback={<LoadingScreen waiting />}>
-      <Visit key={artistId} artistId={artistId} />
+      {artistId ? <Visit key={artistId} artistId={artistId} /> : <WeeklyVisit />}
     </Suspense>
   )
 }
 
+/** /ville sans artiste : la villa la plus visitée */
+function WeeklyVisit() {
+  const artistId = use(getVillaOfTheWeek())
+  return <Visit key={artistId} artistId={artistId} />
+}
+
 function Visit({ artistId }: { artistId: string }) {
   const villa = use(getVilla(artistId))
-  return villa ? <VillaVisit villa={villa} /> : <NoVilla />
+  return villa ? <GuardedVisit villa={villa} /> : <NoVilla />
+}
+
+/** Galerie payante : on n'entre qu'avec un droit de visite valide, sinon retour à l'offre de visite */
+function GuardedVisit({ villa }: { villa: VillaConfig }) {
+  const { t } = useTranslation()
+  const access = useVisitAccess({ id: villa.artistId, free: villa.free ?? false })
+  useDocumentTitle(t('world.villa', { name: villa.artistName }))
+  if (access.isChecking) return <LoadingScreen waiting />
+  if (!access.hasAccess) return <Navigate to={`/artistes/${encodeURIComponent(villa.artistId)}#support`} replace />
+  return <VillaVisit villa={villa} />
 }
 
 function VillaVisit({ villa }: { villa: VillaConfig }) {

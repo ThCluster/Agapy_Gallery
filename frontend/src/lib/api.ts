@@ -78,8 +78,15 @@ export interface RequestOptions {
   signal?: AbortSignal
 }
 
+/**
+ * Adresse de l'API : uniquement des chemins relatifs du site (« /api/… » ou relatifs à /api/v1).
+ * Les URL absolues sont refusées : le jeton d'accès ne doit jamais partir vers une autre origine.
+ */
 function buildUrl(path: string, query?: RequestOptions['query']): string {
-  const url = path.startsWith('http') || path.startsWith('/api') ? path : `${API_BASE}${path.startsWith('/') ? '' : '/'}${path}`
+  if (/^[a-z][a-z\d+.-]*:/i.test(path) || path.startsWith('//') || path.includes('\\')) {
+    throw new Error(`Adresse d'API refusée : ${path}`)
+  }
+  const url = path.startsWith('/api/') ? path : `${API_BASE}${path.startsWith('/') ? '' : '/'}${path}`
   if (!query) return url
   const params = new URLSearchParams()
   for (const [k, v] of Object.entries(query)) {
@@ -89,7 +96,7 @@ function buildUrl(path: string, query?: RequestOptions['query']): string {
   return qs ? `${url}${url.includes('?') ? '&' : '?'}${qs}` : url
 }
 
-async function send(path: string, opts: RequestOptions, token: string | null): Promise<Response> {
+async function send(url: string, opts: RequestOptions, token: string | null): Promise<Response> {
   const headers: Record<string, string> = { Accept: 'application/json', 'Accept-Language': i18n.language || 'fr', ...opts.headers }
   let body: BodyInit | undefined
   if (opts.body instanceof FormData) body = opts.body
@@ -97,15 +104,24 @@ async function send(path: string, opts: RequestOptions, token: string | null): P
     headers['Content-Type'] = 'application/json'
     body = JSON.stringify(opts.body)
   }
-  if (token) headers.Authorization = `Bearer ${token}`
-  return fetch(buildUrl(path, opts.query), { method: opts.method ?? (body ? 'POST' : 'GET'), headers, body, credentials: 'include', signal: opts.signal })
+  // Le jeton n'accompagne que les appels à notre API (chemin relatif /api/…)
+  if (token && url.startsWith('/api/')) headers.Authorization = `Bearer ${token}`
+  return fetch(url, { method: opts.method ?? (body ? 'POST' : 'GET'), headers, body, credentials: 'include', signal: opts.signal })
 }
 
 export async function api<T = unknown>(path: string, opts: RequestOptions = {}): Promise<T> {
   const useAuth = opts.auth !== false
-  let res = await send(path, opts, useAuth ? bridge.get() : null)
-  if (res.status === 401 && useAuth && bridge.get()) {
-    if (await bridge.refresh()) res = await send(path, opts, bridge.get())
+  const url = buildUrl(path, opts.query)
+  const sentToken = useAuth ? bridge.get() : null
+  let res = await send(url, opts, sentToken)
+  if (res.status === 401 && useAuth && sentToken) {
+    const current = bridge.get()
+    if (current && current !== sentToken) {
+      // Jeton déjà renouvelé entre-temps (autre requête) : on rejoue sans nouveau rafraîchissement
+      res = await send(url, opts, current)
+    } else if (current && (await bridge.refresh())) {
+      res = await send(url, opts, bridge.get())
+    }
   }
   if (res.status === 204) return undefined as T
   const data = await res.json().catch(() => ({}))
