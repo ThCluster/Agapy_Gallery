@@ -36,7 +36,7 @@
       "visits": "Visits this month",
       "donations": "Donations this month",
       "works": "Published artworks",
-      "vsLastMonth": "{{delta}} vs same period last month"
+      "vsLastMonth": "{{delta}} vs last month"
     },
     "chart": {
       "title": "Your earnings over time",
@@ -55,7 +55,9 @@
       "period": "Period",
       "visitCount": "Number of visits",
       "showTable": "Show the data table",
-      "showChart": "Show the chart"
+      "showChart": "Show the chart",
+      "empty": "No revenue for this period yet.",
+      "currency": "Currency"
     },
     "works": {
       "title_one": "{{count}} artwork",
@@ -65,13 +67,23 @@
       "status": {
         "published": "Published",
         "pending": "Awaiting approval",
-        "rejected": "Rejected"
+        "rejected": "Rejected",
+        "draft": "Draft",
+        "awaiting_payment": "Awaiting payment",
+        "pending_review": "Awaiting review",
+        "removed": "Removed by the team"
       },
       "pendingHint": "Our moderators are reviewing your artwork. You will be notified by SMS and email.",
       "since": "added on {{date}}",
       "paid": "Paid",
       "delete": "Delete “{{title}}”",
-      "confirmDelete": "Confirm deletion"
+      "confirmDelete": "Confirm deletion",
+      "awaitingHint": "The publication fee has not been paid yet: submit the artwork again to pay.",
+      "reason": "Reason: {{reason}}",
+      "edit": "Edit “{{title}}”",
+      "submit": "Submit “{{title}}” for review",
+      "editReview": "Changing the title of a published artwork sends it back to review.",
+      "settled": "Publication already paid: the artwork goes straight back to review."
     },
     "frames": {
       "black": "Thin black",
@@ -107,7 +119,7 @@
         "file": "Your work",
         "fileHint": "Photo or digital creation of the artwork, in good quality.",
         "fileChoose": "Upload the artwork image",
-        "fileFormats": "JPG, PNG or WebP, 15 MB max",
+        "fileFormats": "JPG, PNG or WebP, 10 MB max",
         "frame": "Virtual frame",
         "free": "Free-access artwork",
         "freeHint": "You can change this at any time.",
@@ -129,7 +141,7 @@
         "summary": "The summary must have at least 30 characters.",
         "size": "Enter a size in centimetres.",
         "file": "Upload the image of your artwork.",
-        "fileSize": "The image is larger than 15 MB.",
+        "fileSize": "The image is larger than 10 MB.",
         "certify": "You must certify that you own the artwork."
       }
     },
@@ -202,6 +214,40 @@
       "pwdNote": "A confirmation SMS will be sent after every change.",
       "errors": {
         "mismatch": "The two passwords do not match."
+      }
+    },
+    "loading": "Loading…",
+    "loadError": "These figures cannot be loaded right now.",
+    "save": "Save",
+    "saving": "Saving…",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {{page}}",
+    "paymentReturn": {
+      "succeeded": "Payment confirmed. Thank you!",
+      "pending": "Payment is being confirmed. Details will update in a moment.",
+      "failed": "The payment did not go through. You can try again."
+    },
+    "payout": {
+      "title": "Request a payout",
+      "subtitle": "Receive your available earnings by mobile money or bank transfer.",
+      "available": "Available",
+      "pendingAmount": "{{amount}} being paid out",
+      "amount": "Amount to withdraw",
+      "channel": "Payout method",
+      "channels": {
+        "momo": "Mobile money",
+        "iban": "Bank transfer"
+      },
+      "submit": "Request payout",
+      "sending": "Sending…",
+      "sent": "Request sent. Our team will process it shortly.",
+      "history": "My payout requests",
+      "none": "No payout requests yet.",
+      "status": {
+        "pending": "Pending",
+        "paid": "Paid",
+        "rejected": "Rejected"
       }
     }
   },

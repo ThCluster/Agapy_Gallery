@@ -3,20 +3,18 @@ import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Img } from '@/components/ui/Img'
 import { formatSize } from '@/lib/format'
-import { artworkSummary, type ArtistProfile } from '@/mocks/artistProfiles'
-import type { Artist, Artwork } from '@/types/catalog'
+import type { CatalogArtwork } from '@/api/catalog'
 
 interface Props {
-  works: Artwork[]
+  works: CatalogArtwork[]
   index: number
-  artist: Artist
-  profile: ArtistProfile
+  artist: { name: string; city: string }
   onChange: (index: number) => void
   onClose: () => void
 }
 
 /** Œuvre en grand, sur fond clair : flèches du clavier pour naviguer, Échap pour fermer. */
-export function ArtworkLightbox({ works, index, artist, profile, onChange, onClose }: Props) {
+export function ArtworkLightbox({ works, index, artist, onChange, onClose }: Props) {
   const { t } = useTranslation()
   const closeBtn = useRef<HTMLButtonElement>(null)
   const work = works[index]
@@ -52,7 +50,7 @@ export function ArtworkLightbox({ works, index, artist, profile, onChange, onClo
       <div className="grid min-h-0 flex-1 gap-8 overflow-y-auto px-4 pb-8 sm:px-8 lg:grid-cols-[1fr_380px]">
         <div className="relative flex min-h-[50vh] items-center justify-center">
           <span className="block bg-white p-3 shadow-[0_30px_70px_-30px_rgb(30_46_41/0.5)]">
-            <Img key={work.id} photo={work.photo} alt={work.title} className="max-h-[70vh] w-auto object-contain" />
+            <Img key={work.id} src={work.image} alt={work.title} className="max-h-[70vh] w-auto object-contain" />
           </span>
           {works.length > 1 && (
             <>
@@ -79,11 +77,13 @@ export function ArtworkLightbox({ works, index, artist, profile, onChange, onClo
               <dd className="text-brand-graphite dark:text-white">{formatSize(work.size)}</dd>
             </div>
           </dl>
-          <p className="mt-6 text-sm leading-relaxed text-brand-ink dark:text-slate-300">{artworkSummary(work, artist)}</p>
-          <p className="mt-6 flex items-start gap-2 rounded-xl bg-brand-mist p-4 text-xs text-gray-600 dark:bg-night-card dark:text-slate-300">
-            <ShieldCheck className="size-4 shrink-0 text-brand-green" />
-            {t('artist.protectedBy', { office: profile.copyrightOffice })}
-          </p>
+          <p className="mt-6 text-sm leading-relaxed text-brand-ink dark:text-slate-300">{work.summary || t('catalog.artwork.summary', { title: work.title, name: artist.name, city: artist.city, technique: work.technique, h: work.size[0], w: work.size[1] })}</p>
+          {work.copyright_office && (
+            <p className="mt-6 flex items-start gap-2 rounded-xl bg-brand-mist p-4 text-xs text-gray-600 dark:bg-night-card dark:text-slate-300">
+              <ShieldCheck className="size-4 shrink-0 text-brand-green" />
+              {t('artist.protectedBy', { office: work.copyright_office })}
+            </p>
+          )}
         </aside>
       </div>
     </div>

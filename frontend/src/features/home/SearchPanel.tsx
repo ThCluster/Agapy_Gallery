@@ -2,17 +2,11 @@ import { Search } from 'lucide-react'
 import { useId, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
-import { artists, freeGalleries, recommended, teamFavorites } from '@/mocks/homeData'
+import { useArtists, useArtworks } from '@/api/catalog'
 
 /** Les trois façons de chercher prévues au cahier des charges */
 const MODES = ['artist', 'artwork', 'free'] as const
 type Mode = (typeof MODES)[number]
-
-const SUGGESTIONS: Record<Mode, string[]> = {
-  artist: artists.map((a) => a.name),
-  artwork: [...recommended, ...teamFavorites, ...freeGalleries].map((a) => a.title),
-  free: [],
-}
 
 export function SearchPanel() {
   const { t } = useTranslation()
@@ -20,6 +14,14 @@ export function SearchPanel() {
   const listId = useId()
   const [mode, setMode] = useState<Mode>('artist')
   const [query, setQuery] = useState('')
+  // Suggestions de saisie : noms d'artistes et titres d'œuvres publiés
+  const artists = useArtists({ page_size: 100 })
+  const works = useArtworks({ page_size: 100 })
+  const SUGGESTIONS: Record<Mode, string[]> = {
+    artist: (artists.data?.results ?? []).map((a) => a.name),
+    artwork: [...new Set((works.data?.results ?? []).map((a) => a.title))],
+    free: [],
+  }
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault()

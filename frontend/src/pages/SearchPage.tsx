@@ -2,14 +2,12 @@ import { ArrowUpRight, Gift, Info, MapPin, Search, SearchX, TrainFront, UserSear
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router'
+import { useArtists, useArtworks, useSearch, type CatalogArtist, type CatalogArtwork, type SearchResult, workRatio } from '@/api/catalog'
 import { Img } from '@/components/ui/Img'
+import { errorMessage } from '@/lib/api'
 import { formatSize } from '@/lib/format'
 import { displayPrice, PRICES, useRegion } from '@/lib/pricing'
-import { closest, matches, normalize } from '@/lib/search'
-import { getArtist } from '@/mocks/artistProfiles'
-import { allWorks, artistById, artists, recommended } from '@/mocks/homeData'
-import { photos } from '@/mocks/photos'
-import type { Artist, Artwork } from '@/types/catalog'
+import { closest, normalize } from '@/lib/search'
 
 type Mode = 'artist' | 'artwork'
 
@@ -112,11 +110,14 @@ export function SearchPage() {
 /* ───────────── Avant toute recherche ───────────── */
 function EmptyQuery({ mode }: { mode: Mode }) {
   const { t } = useTranslation()
+  const artists = useArtists({ page_size: 8 })
+  const works = useArtworks({ recommended: true, page_size: 8 })
+  const labels = mode === 'artist' ? (artists.data?.results ?? []).map((a) => a.name) : [...new Set((works.data?.results ?? []).map((w) => w.title))]
   return (
     <div>
       <p className="text-sm text-gray-500">{t(mode === 'artist' ? 'search.page.tryArtists' : 'search.page.tryWorks')}</p>
       <div className="mt-4 flex flex-wrap gap-2">
-        {(mode === 'artist' ? artists.map((a) => a.name) : recommended.map((w) => w.title)).map((label) => (
+        {labels.map((label) => (
           <Link
             key={label}
             to={`/recherche?mode=${mode}&q=${encodeURIComponent(label)}`}
@@ -130,15 +131,39 @@ function EmptyQuery({ mode }: { mode: Mode }) {
   )
 }
 
+/** Chargement et erreur communs aux deux recherches */
+function SearchStatus({ query }: { query: { isPending: boolean; isError: boolean; error: unknown } }) {
+  if (query.isPending)
+    return (
+      <ul className="grid grid-cols-2 gap-x-5 gap-y-10 md:grid-cols-3 lg:grid-cols-4" aria-busy>
+        {Array.from({ length: 4 }, (_, i) => (
+          <li key={i} className="aspect-[4/5] animate-pulse rounded-2xl bg-brand-mist dark:bg-night-card" />
+        ))}
+      </ul>
+    )
+  return <p className="rounded-3xl bg-brand-mist p-10 text-center text-gray-500 dark:bg-night-card">{errorMessage(query.error, 'q')}</p>
+}
+
+/** Message du serveur (codes artist_not_found / artwork_not_found), traduit */
+function useNotFoundText(data: SearchResult | undefined, fallback: string): string {
+  const { t } = useTranslation()
+  return data?.code ? t(`errors.${data.code}`, { defaultValue: data.detail || fallback }) : fallback
+}
+
 /* ───────────── Recherche par nom d'artiste ───────────── */
 function ArtistResults({ q }: { q: string }) {
   const { t } = useTranslation()
-  const results = useMemo(() => artists.filter((a) => matches(a.name, q)), [q])
-  const suggestions = useMemo(() => (results.length ? [] : closest(artists, (a) => a.name, q)), [results, q])
+  const query = useSearch({ artist: q })
+  const all = useArtists({ page_size: 100 })
+  const data = query.data
+  const results = data?.artists ?? []
+  const suggestions = useMemo(() => (data && !data.artists.length ? closest(all.data?.results ?? [], (a) => a.name, q) : []), [data, all.data, q])
+  const notFound = useNotFoundText(data, t('search.page.artistNotFoundText', { q }))
 
+  if (!data) return <SearchStatus query={query} />
   if (!results.length) {
     return (
-      <NotFound title={t('artist.notFound.title')} text={t('search.page.artistNotFoundText', { q })}>
+      <NotFound title={t('artist.notFound.title')} text={notFound}>
         {suggestions.length > 0 && (
           <p className="mt-6 text-sm text-brand-ink dark:text-slate-300">
             {t('search.page.didYouMean')}{' '}
@@ -174,19 +199,19 @@ function ArtistResults({ q }: { q: string }) {
   )
 }
 
-function ArtistCard({ artist }: { artist: Artist }) {
+function ArtistCard({ artist }: { artist: CatalogArtist }) {
   const { t } = useTranslation()
   return (
     <Link to={`/artistes/${artist.id}`} className="group block">
       <span className="relative block aspect-[4/5] overflow-hidden rounded-2xl bg-brand-mist">
-        <Img photo={artist.cover} alt="" className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
+        <Img src={artist.cover} alt="" className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
         {artist.free && <span className="absolute top-3 left-3 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-brand-green">{t('artwork.free')}</span>}
       </span>
       <span className="mt-4 flex items-center justify-between gap-2">
         <span className="text-lg font-semibold text-brand-graphite group-hover:text-brand-green dark:text-white">{artist.name}</span>
         <ArrowUpRight className="size-5 shrink-0 text-gray-400 group-hover:text-brand-green" />
       </span>
-      <span className="block text-sm text-gray-500">{t(`discipline.${artist.discipline}`)}</span>
+      {artist.discipline && <span className="block text-sm text-gray-500">{t(`discipline.${artist.discipline}`)}</span>}
       <span className="mt-1 flex items-center gap-1 text-xs text-gray-500">
         <MapPin className="size-3.5" /> {artist.city}, {artist.country}
       </span>
@@ -194,32 +219,35 @@ function ArtistCard({ artist }: { artist: Artist }) {
   )
 }
 
-/* ───────────── Recherche par titre d'œuvre ───────────── */
+/* ───────────── Recherche par titre d'œuvre (et, au besoin, nom de l'artiste) ───────────── */
 function ArtworkResults({ q, byArtist, onRefine }: { q: string; byArtist: string; onRefine: (artistName: string) => void }) {
   const { t } = useTranslation()
-  const byTitle = useMemo(() => allWorks.filter((w) => matches(w.title, q)), [q])
-  const results = useMemo(
-    () => (byArtist ? byTitle.filter((w) => matches(artistById(w.artistId)?.name ?? '', byArtist)) : byTitle),
-    [byTitle, byArtist],
-  )
+  const query = useSearch({ title: q, artist: byArtist || undefined })
+  const all = useArtworks({ page_size: 100 })
+  const data = query.data
+  const artistsById = useMemo(() => new Map((data?.artists ?? []).map((a) => [a.id, a])), [data])
+  const fallback = byArtist ? t('search.page.artworkNotFoundBy', { q, artist: byArtist }) : t('search.page.artworkNotFoundText', { q })
+  const notFound = useNotFoundText(data, fallback)
 
   // Homonymes : plusieurs artistes ont une œuvre portant exactement le même titre
   const homonyms = useMemo(() => {
-    if (byArtist) return []
-    const groups = new Map<string, Set<string>>()
-    for (const w of byTitle) {
+    if (byArtist || !data) return []
+    const groups = new Map<string, Map<string, string>>()
+    for (const w of data.artworks) {
       const key = normalize(w.title)
-      if (!groups.has(key)) groups.set(key, new Set())
-      groups.get(key)!.add(w.artistId)
+      if (!groups.has(key)) groups.set(key, new Map())
+      groups.get(key)!.set(w.artist_id, w.artist_name)
     }
-    const [title, ids] = [...groups.entries()].find(([, ids]) => ids.size > 1) ?? []
-    return title && ids ? [...ids].map((id) => artistById(id)!).filter(Boolean) : []
-  }, [byTitle, byArtist])
+    const names = [...groups.values()].find((ids) => ids.size > 1)
+    return names ? [...names.entries()].map(([id, name]) => ({ id, name })) : []
+  }, [data, byArtist])
 
+  if (!data) return <SearchStatus query={query} />
+  const results = data.artworks
   if (!results.length) {
-    const suggestions = closest(allWorks, (w) => w.title, q)
+    const suggestions = closest(all.data?.results ?? [], (w) => w.title, q)
     return (
-      <NotFound title={t('search.page.artworkNotFound')} text={byArtist ? t('search.page.artworkNotFoundBy', { q, artist: byArtist }) : t('search.page.artworkNotFoundText', { q })}>
+      <NotFound title={data.code === 'artist_not_found' ? t('artist.notFound.title') : t('search.page.artworkNotFound')} text={notFound}>
         {suggestions.length > 0 && (
           <p className="mt-6 text-sm text-brand-ink dark:text-slate-300">
             {t('search.page.didYouMean')}{' '}
@@ -261,7 +289,7 @@ function ArtworkResults({ q, byArtist, onRefine }: { q: string; byArtist: string
       <ul className="grid gap-6 md:grid-cols-2">
         {results.map((w) => (
           <li key={w.id}>
-            <WorkResult work={w} />
+            <WorkResult work={w} artist={artistsById.get(w.artist_id)} />
           </li>
         ))}
       </ul>
@@ -270,45 +298,43 @@ function ArtworkResults({ q, byArtist, onRefine }: { q: string; byArtist: string
 }
 
 /** Œuvre trouvée : le visiteur peut s'arrêter, visiter, donner, ou les deux (p. 11). */
-function WorkResult({ work }: { work: Artwork }) {
+function WorkResult({ work, artist }: { work: CatalogArtwork; artist?: CatalogArtist }) {
   const { t, i18n } = useTranslation()
   const region = useRegion((s) => s.region)
-  const artist = artistById(work.artistId)
-  const profile = artist ? getArtist(artist.id)?.profile : undefined
-  if (!artist) return null
-  const ph = photos[work.photo]
+  const ph = workRatio(work)
+  const free = !!artist?.free
 
   return (
     <article className="flex h-full gap-5 rounded-3xl border border-brand-green/10 bg-white p-4 transition hover:shadow-[0_24px_60px_-40px_rgb(30_46_41/0.5)] sm:p-5 dark:border-white/10 dark:bg-night-card">
-      <Link to={`/artistes/${artist.id}`} className="shrink-0 self-start bg-white p-2 shadow-[0_12px_30px_-14px_rgb(30_46_41/0.45)]">
+      <Link to={`/oeuvres/${work.id}`} className="shrink-0 self-start bg-white p-2 shadow-[0_12px_30px_-14px_rgb(30_46_41/0.45)]">
         <span className={`block overflow-hidden ${ph.height >= ph.width ? 'h-36 sm:h-44' : 'w-32 sm:w-44'}`} style={{ aspectRatio: `${ph.width} / ${ph.height}` }}>
-          <Img photo={work.photo} alt={work.title} className="h-full w-full object-cover" />
+          <Img src={work.image} alt={work.title} className="h-full w-full object-cover" />
         </span>
       </Link>
       <div className="flex min-w-0 flex-1 flex-col">
         <p className="text-lg font-semibold text-brand-graphite dark:text-white">{work.title}</p>
-        <Link to={`/artistes/${artist.id}`} className="flex items-center gap-2 text-sm text-brand-ink hover:text-brand-green dark:text-slate-300">
-          {profile?.portrait && (
+        <Link to={`/artistes/${work.artist_id}`} className="flex items-center gap-2 text-sm text-brand-ink hover:text-brand-green dark:text-slate-300">
+          {artist?.photo && (
             <span className="block size-6 overflow-hidden rounded-full">
-              <Img photo={profile.portrait} alt="" className="h-full w-full object-cover" />
+              <Img src={artist.photo} alt="" className="h-full w-full object-cover" />
             </span>
           )}
-          {artist.name}
+          {work.artist_name}
         </Link>
         <p className="mt-1 text-xs text-gray-500">
           {work.technique} · {formatSize(work.size)}
         </p>
         <div className="mt-auto flex flex-wrap gap-2 pt-4">
-          {artist.free ? (
-            <Link to="/ville" className="btn-primary rounded-full px-4 py-2 text-xs sm:text-sm">
+          {free ? (
+            <Link to={`/ville/${work.artist_id}`} className="btn-primary rounded-full px-4 py-2 text-xs sm:text-sm">
               <TrainFront className="size-4" /> {t('freeGalleries.visit')}
             </Link>
           ) : (
-            <Link to={`/paiement?artiste=${artist.id}&visite=1&zone=${region}`} className="btn-primary rounded-full px-4 py-2 text-xs sm:text-sm">
+            <Link to={`/artistes/${work.artist_id}#support`} className="btn-primary rounded-full px-4 py-2 text-xs sm:text-sm">
               {t('search.page.visit', { price: displayPrice(PRICES.visit, region, i18n.resolvedLanguage) })}
             </Link>
           )}
-          <Link to={`/artistes/${artist.id}#support`} className="btn-secondary rounded-full px-4 py-2 text-xs sm:text-sm">
+          <Link to={`/artistes/${work.artist_id}#support`} className="btn-secondary rounded-full px-4 py-2 text-xs sm:text-sm">
             <Gift className="size-4" /> {t('artist.support.donate')}
           </Link>
         </div>

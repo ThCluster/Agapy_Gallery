@@ -1,10 +1,10 @@
 import { ArrowUpRight, MapPin, Search } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useDeferredValue, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
+import { useArtists } from '@/api/catalog'
 import { Img } from '@/components/ui/Img'
-import { artists } from '@/mocks/homeData'
-import type { Discipline } from '@/types/catalog'
+import { errorMessage } from '@/lib/api'
 
 const FILTERS = ['all', 'peinture', 'photographie', 'sculpture', 'free'] as const
 type Filter = (typeof FILTERS)[number]
@@ -14,15 +14,16 @@ export function ArtistsPage() {
   const { t } = useTranslation()
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState('')
-
-  const list = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return artists.filter((a) => {
-      if (filter === 'free' && !a.free) return false
-      if (filter !== 'all' && filter !== 'free' && a.discipline !== (filter as Discipline)) return false
-      return !q || a.name.toLowerCase().includes(q) || a.city.toLowerCase().includes(q) || a.country.toLowerCase().includes(q)
-    })
-  }, [filter, query])
+  const [page, setPage] = useState(1)
+  const q = useDeferredValue(query.trim())
+  // Filtres côté API (nom, discipline, gratuité), 24 artistes par page
+  const { data, isPending, isError, error, isPlaceholderData } = useArtists({
+    q: q || undefined,
+    discipline: filter !== 'all' && filter !== 'free' ? filter : undefined,
+    free: filter === 'free',
+    page,
+  })
+  const list = data?.results ?? []
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
@@ -36,7 +37,10 @@ export function ArtistsPage() {
             <button
               key={f}
               type="button"
-              onClick={() => setFilter(f)}
+              onClick={() => {
+                setFilter(f)
+                setPage(1)
+              }}
               aria-pressed={filter === f}
               className={`rounded-full px-4 py-2 text-sm whitespace-nowrap transition ${
                 filter === f ? 'bg-brand-green text-white' : 'bg-brand-mist text-brand-ink hover:bg-brand-green/10 dark:bg-night-card dark:text-slate-300'
@@ -49,17 +53,32 @@ export function ArtistsPage() {
         <label className="relative md:w-80">
           <span className="sr-only">{t('artists.searchLabel')}</span>
           <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-gray-400" />
-          <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('artists.searchLabel')} className="field rounded-full pl-10" />
+          <input type="search" value={query} onChange={(e) => {
+              setQuery(e.target.value)
+              setPage(1)
+            }} placeholder={t('artists.searchLabel')} className="field rounded-full pl-10" />
         </label>
       </div>
 
-      {list.length ? (
-        <ul className="mt-10 grid grid-cols-2 gap-x-5 gap-y-10 md:grid-cols-3 lg:grid-cols-4">
+      {isPending ? (
+        <ul className="mt-10 grid grid-cols-2 gap-x-5 gap-y-10 md:grid-cols-3 lg:grid-cols-4" aria-busy>
+          {Array.from({ length: 8 }, (_, i) => (
+            <li key={i} className="animate-pulse">
+              <span className="block aspect-[4/5] rounded-2xl bg-brand-mist dark:bg-night-card" />
+              <span className="mt-4 block h-5 w-2/3 rounded bg-brand-mist dark:bg-night-card" />
+              <span className="mt-2 block h-3 w-1/3 rounded bg-brand-mist dark:bg-night-card" />
+            </li>
+          ))}
+        </ul>
+      ) : isError ? (
+        <p className="mt-12 rounded-3xl bg-brand-mist p-10 text-center text-gray-500 dark:bg-night-card">{errorMessage(error)}</p>
+      ) : list.length ? (
+        <ul className={`mt-10 grid ${isPlaceholderData ? 'opacity-60' : ''} grid-cols-2 gap-x-5 gap-y-10 md:grid-cols-3 lg:grid-cols-4`}>
           {list.map((a) => (
             <li key={a.id}>
               <Link to={`/artistes/${a.id}`} className="group block">
                 <span className="relative block aspect-[4/5] overflow-hidden rounded-2xl bg-brand-mist">
-                  <Img photo={a.cover} alt="" className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
+                  <Img src={a.cover} alt="" className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
                   {a.free && (
                     <span className="absolute top-3 left-3 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-brand-green">{t('artwork.free')}</span>
                   )}
@@ -68,7 +87,7 @@ export function ArtistsPage() {
                   </span>
                 </span>
                 <span className="mt-4 block text-lg font-semibold text-brand-graphite group-hover:text-brand-green dark:text-white">{a.name}</span>
-                <span className="block text-sm text-gray-500">{t(`discipline.${a.discipline}`)}</span>
+                <span className="block text-sm text-gray-500">{a.discipline ? t(`discipline.${a.discipline}`) : ' '}</span>
                 <span className="mt-1 flex items-center gap-1 text-xs text-gray-500">
                   <MapPin className="size-3.5" /> {a.city}, {a.country}
                 </span>
@@ -81,6 +100,19 @@ export function ArtistsPage() {
         <div className="mt-12 rounded-3xl bg-brand-mist p-10 text-center dark:bg-night-card">
           <p className="text-lg font-semibold text-brand-graphite dark:text-white">{t('artist.notFound.title')}</p>
           <p className="mt-2 text-sm text-gray-500">{t('artist.notFound.text')}</p>
+        </div>
+      )}
+
+      {/* Pagination (24 artistes par page) */}
+      {data && (data.next || data.previous) && (
+        <div className="mt-12 flex items-center justify-center gap-3">
+          <button type="button" className="btn-secondary rounded-full px-5 py-2" disabled={!data.previous} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            {t('common.previous')}
+          </button>
+          <span className="text-sm text-gray-500">{page}</span>
+          <button type="button" className="btn-secondary rounded-full px-5 py-2" disabled={!data.next} onClick={() => setPage((p) => p + 1)}>
+            {t('common.next')}
+          </button>
         </div>
       )}
     </section>

@@ -1,6 +1,8 @@
 import { Building2, Server } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
+import { useSitePage } from '@/api/site'
+import { RichText } from './RichText'
 
 interface Section {
   id: string
@@ -13,7 +15,9 @@ const PHONE = '+225 25 22 00 86 05'
 
 /** Mentions légales : éditeur, hébergeur, propriété intellectuelle, données personnelles et cookies. */
 export function LegalPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  // Texte publié depuis l'administration ; repli sur le texte local si absent
+  const { data: remote } = useSitePage('legal', i18n.resolvedLanguage)
   const sections = t('static.legal.sections', { returnObjects: true }) as Section[]
   const todo = t('static.common.toComplete')
 
@@ -30,12 +34,16 @@ export function LegalPage() {
       <header className="bg-gradient-to-b from-[#f4f1ec] to-white dark:from-night-card dark:to-night-bg">
         <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6 lg:py-20">
           <p className="eyebrow">{t('static.legal.eyebrow')}</p>
-          <h1 className="mt-3 text-4xl leading-tight font-light tracking-tight text-brand-graphite sm:text-5xl dark:text-white">{t('static.legal.title')}</h1>
+          <h1 className="mt-3 text-4xl leading-tight font-light tracking-tight text-brand-graphite sm:text-5xl dark:text-white">{remote?.title || t('static.legal.title')}</h1>
           <p className="mt-5 text-lg leading-relaxed text-gray-500 dark:text-slate-400">{t('static.legal.lead')}</p>
         </div>
       </header>
 
       <div className="mx-auto max-w-3xl px-4 pb-20 sm:px-6">
+        {remote ? (
+          <RichText text={remote.body} />
+        ) : (
+        <>
         {/* Éditeur */}
         <section aria-labelledby="legal-publisher" className="rounded-3xl border border-brand-green/10 bg-white p-6 sm:p-8 dark:border-white/10 dark:bg-night-card">
           <div className="flex items-center gap-3">
@@ -99,6 +107,8 @@ export function LegalPage() {
             )}
           </section>
         ))}
+        </>
+        )}
 
         <p className="mt-4 text-sm text-gray-500">
           <Link to="/conditions-generales" className="link">

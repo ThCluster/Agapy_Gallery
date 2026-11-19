@@ -20,6 +20,11 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // API Django (backend, port 8010) sur la même origine : le cookie de session fonctionne sans CORS
+    proxy: {
+      '/api': 'http://127.0.0.1:8010',
+      '/media': 'http://127.0.0.1:8010',
+    },
   },
   build: {
     // Le monde 3D (three.js) est chargé à la demande sur /ville : gros paquet attendu

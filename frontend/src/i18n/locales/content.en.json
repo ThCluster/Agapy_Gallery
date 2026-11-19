@@ -1,0 +1,87 @@
+{
+  "content": {
+    "loading": "Loading…",
+    "close": "Close",
+    "backHome": "Back to home",
+    "newsletter": {
+      "eyebrow": "Newsletter",
+      "pending": "Unsubscribing…",
+      "doneTitle": "You are unsubscribed",
+      "doneText": "You will no longer receive the AGAPY-GALLERY newsletter. You can subscribe again at any time from the footer.",
+      "errorTitle": "Unable to unsubscribe",
+      "missingToken": "This unsubscribe link is incomplete. Please use the link from the email."
+    },
+    "clip": {
+      "videoSize": "The video must not exceed 50 MB.",
+      "poster": "Clip poster",
+      "posterHint": "Image shown before playback (JPG, PNG or WebP, 5 MB max).",
+      "posterInvalid": "Choose an image of 5 MB or less.",
+      "method": "Payment method",
+      "methods": {
+        "momo": "Mobile money",
+        "card": "Bank card",
+        "wallet": "Credit account"
+      },
+      "successQueue": "Your clip is paid. It is number {{position}} in the queue and will loop on the home page for 24 hours.",
+      "successText": "Your clip is paid. It will loop on the home page for 24 hours as soon as a slot is free.",
+      "paymentFailed": "The payment did not go through: your clip is not on air. You can try again."
+    },
+    "tv": {
+      "eyebrow": "AGAPY TV",
+      "title": "Online TV",
+      "offAir": "No live broadcast at the moment.",
+      "upcoming": "Upcoming broadcasts",
+      "none": "No broadcast scheduled."
+    },
+    "forum": {
+      "loginToPost": "Log in to post",
+      "loginToReply": "Log in to reply",
+      "searchPlaceholder": "Search topics",
+      "empty": "No topics yet. Logged-in artists can start the conversation.",
+      "noResults": "No topic matches “{{q}}”.",
+      "locked": "Locked topic",
+      "lockedNote": "This topic is locked: replies are closed.",
+      "pagination": "Pages",
+      "pageOf": "Page {{page}} of {{pages}}",
+      "category": "Category",
+      "titleLabel": "Topic title",
+      "bodyLabel": "Your message",
+      "submitTopic": "Post topic",
+      "back": "Back to the forum",
+      "notFound": "This topic does not exist or has been removed.",
+      "noReplies": "No replies yet.",
+      "replyLabel": "Your reply",
+      "sendReply": "Reply",
+      "report": "Report",
+      "reportReason": "Why are you reporting this message?",
+      "reported": "Thank you, the team will review this message.",
+      "errors": {
+        "title": "The title must be at least 5 characters long.",
+        "body": "The message must be at least 10 characters long.",
+        "reply": "Write your reply."
+      }
+    }
+  },
+  "static": {
+    "contact": {
+      "email": "Email",
+      "emailPlaceholder": "aya@example.com",
+      "phone": "Phone",
+      "phonePlaceholder": "+225 07 00 00 00 00",
+      "errors": {
+        "email": "Enter a valid email address.",
+        "phone": "Invalid phone number."
+      }
+    },
+    "ads": {
+      "form": {
+        "videoHint": "MP4 or WebM, 30 seconds and 50 MB max.",
+        "contact": "Contact phone or email",
+        "secure": "You will be redirected to the secure payment page."
+      }
+    }
+  },
+  "errors": {
+    "topic_locked": "This topic is locked: replies are closed."
+  }
+}

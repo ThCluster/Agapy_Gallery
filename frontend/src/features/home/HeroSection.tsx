@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { Img } from '@/components/ui/Img'
-import { displayedArtistCount } from '@/lib/artistCounter'
+import { useArtistCount } from '@/lib/artistCounter'
 import { formatNumber } from '@/lib/format'
 import { displayPrice, PRICES, useRegion } from '@/lib/pricing'
 import type { PhotoKey } from '@/mocks/photos'
@@ -20,8 +20,8 @@ export function HeroSection() {
   const { t, i18n } = useTranslation()
   const region = useRegion((s) => s.region)
   const [index, setIndex] = useState(0)
-  // TODO : remplacer par le vrai nombre d'artistes venant de l'API
-  const count = displayedArtistCount(0)
+  // Nombre d'artistes inscrits (/site/stats/), 1 500 au minimum
+  const count = useArtistCount()
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return

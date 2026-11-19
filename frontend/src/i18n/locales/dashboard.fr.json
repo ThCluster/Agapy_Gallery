@@ -36,7 +36,7 @@
       "visits": "Visites ce mois-ci",
       "donations": "Dons ce mois-ci",
       "works": "Œuvres publiées",
-      "vsLastMonth": "{{delta}} vs même période du mois dernier"
+      "vsLastMonth": "{{delta}} vs mois dernier"
     },
     "chart": {
       "title": "Évolution de vos revenus",
@@ -55,7 +55,9 @@
       "period": "Période",
       "visitCount": "Nombre de visites",
       "showTable": "Afficher le tableau des chiffres",
-      "showChart": "Afficher le graphique"
+      "showChart": "Afficher le graphique",
+      "empty": "Aucun revenu sur cette période pour le moment.",
+      "currency": "Devise"
     },
     "works": {
       "title_one": "{{count}} œuvre",
@@ -65,13 +67,23 @@
       "status": {
         "published": "Publiée",
         "pending": "En attente de validation",
-        "rejected": "Refusée"
+        "rejected": "Refusée",
+        "draft": "Brouillon",
+        "awaiting_payment": "En attente du paiement",
+        "pending_review": "En attente de validation",
+        "removed": "Retirée par l’équipe"
       },
       "pendingHint": "Nos modérateurs examinent votre œuvre. Vous serez prévenu par SMS et e-mail.",
       "since": "ajoutée le {{date}}",
       "paid": "Payante",
       "delete": "Supprimer « {{title}} »",
-      "confirmDelete": "Confirmer la suppression"
+      "confirmDelete": "Confirmer la suppression",
+      "awaitingHint": "Le droit de publication n’est pas encore réglé : soumettez de nouveau l’œuvre pour payer.",
+      "reason": "Motif : {{reason}}",
+      "edit": "Modifier « {{title}} »",
+      "submit": "Soumettre « {{title}} » à la modération",
+      "editReview": "Changer le titre d’une œuvre publiée la renvoie en modération.",
+      "settled": "Publication déjà réglée : l’œuvre repart directement en modération."
     },
     "frames": {
       "black": "Noir fin",
@@ -107,7 +119,7 @@
         "file": "Votre production",
         "fileHint": "Photo ou création numérique de l’œuvre, en bonne qualité.",
         "fileChoose": "Importer l’image de l’œuvre",
-        "fileFormats": "JPG, PNG ou WebP, 15 Mo maximum",
+        "fileFormats": "JPG, PNG ou WebP, 10 Mo maximum",
         "frame": "Cadre virtuel",
         "free": "Œuvre en accès gratuit",
         "freeHint": "Vous pourrez changer ce choix à tout moment.",
@@ -129,7 +141,7 @@
         "summary": "Le résumé doit contenir au moins 30 caractères.",
         "size": "Indiquez une dimension en centimètres.",
         "file": "Importez l’image de votre œuvre.",
-        "fileSize": "L’image dépasse 15 Mo.",
+        "fileSize": "L’image dépasse 10 Mo.",
         "certify": "Vous devez certifier être propriétaire de l’œuvre."
       }
     },
@@ -202,6 +214,40 @@
       "pwdNote": "Un SMS de confirmation vous sera envoyé après chaque changement.",
       "errors": {
         "mismatch": "Les deux mots de passe ne sont pas identiques."
+      }
+    },
+    "loading": "Chargement…",
+    "loadError": "Impossible de charger ces données pour le moment.",
+    "save": "Enregistrer",
+    "saving": "Enregistrement…",
+    "previous": "Précédent",
+    "next": "Suivant",
+    "page": "Page {{page}}",
+    "paymentReturn": {
+      "succeeded": "Paiement confirmé. Merci !",
+      "pending": "Paiement en cours de confirmation. Les informations se mettront à jour dans quelques instants.",
+      "failed": "Le paiement n’a pas abouti. Vous pouvez réessayer."
+    },
+    "payout": {
+      "title": "Demander un retrait",
+      "subtitle": "Recevez vos revenus disponibles par mobile money ou virement bancaire.",
+      "available": "Disponible",
+      "pendingAmount": "{{amount}} en cours de versement",
+      "amount": "Montant à retirer",
+      "channel": "Moyen de versement",
+      "channels": {
+        "momo": "Mobile money",
+        "iban": "Virement bancaire"
+      },
+      "submit": "Demander le retrait",
+      "sending": "Envoi…",
+      "sent": "Demande envoyée. Notre équipe la traitera rapidement.",
+      "history": "Mes demandes de retrait",
+      "none": "Aucune demande de retrait pour le moment.",
+      "status": {
+        "pending": "En attente",
+        "paid": "Versé",
+        "rejected": "Refusé"
       }
     }
   },

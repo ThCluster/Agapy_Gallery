@@ -19,9 +19,9 @@ export function AdvertisersSection() {
             </div>
             <AdSlot format="468x60" />
             <div className="flex flex-wrap items-center gap-3">
-              <AdSlot format="88x31" />
-              <AdSlot format="88x31" />
-              <AdSlot format="88x31" />
+              <AdSlot format="88x31" index={0} />
+              <AdSlot format="88x31" index={1} />
+              <AdSlot format="88x31" index={2} />
               <Link to="/publicite" className="link ml-2 text-sm font-semibold">
                 {t('ads.more')} →
               </Link>

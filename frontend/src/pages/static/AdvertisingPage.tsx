@@ -1,13 +1,20 @@
 import { ArrowRight, CheckCircle2, Clapperboard, Film, Loader2, Play, Radio, Upload } from 'lucide-react'
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
+import { followPaymentAction, type PaymentMethod } from '@/api/payments'
+import { orderClip, useLiveTv } from '@/api/promotions'
+import { useSitePage } from '@/api/site'
 import { AdSlot } from '@/components/ui/AdSlot'
 import { Img } from '@/components/ui/Img'
 import { Field } from '@/features/signup/Field'
 import { inputClass } from '@/features/signup/inputClass'
+import { errorMessage } from '@/lib/api'
 import { formatXOF } from '@/lib/format'
 import { CLIP_PRICE_XOF } from '@/lib/pricing'
+import { useAuth } from '@/stores/auth'
+import { apiFieldErrors } from './formErrors'
+import { RichText } from './RichText'
 
 /** Durée maximale d’un clip sur l’accueil (cahier des charges) */
 const MAX_SECONDS = 30
@@ -19,7 +26,9 @@ interface Stat {
 
 /** Publicité sur AGAPY : formats proposés et réservation d’un clip vidéo de 30 s sur l’accueil. */
 export function AdvertisingPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  // Texte de présentation publié depuis l'administration (facultatif)
+  const { data: remote } = useSitePage('advertising', i18n.resolvedLanguage)
   const stats = t('static.ads.stats', { returnObjects: true }) as Stat[]
   const rules = t('static.ads.clipsRules', { returnObjects: true }) as string[]
   const f = (key: string) => t(`static.ads.formats.${key}.title`)
@@ -73,6 +82,12 @@ export function AdvertisingPage() {
         </div>
       </section>
 
+      {remote && (
+        <section className="mx-auto max-w-3xl px-4 pt-20 sm:px-6">
+          <RichText text={remote.body} className="text-lg" />
+        </section>
+      )}
+
       {/* Formats */}
       <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
         <div className="max-w-2xl">
@@ -93,9 +108,9 @@ export function AdvertisingPage() {
           </FormatCard>
           <FormatCard id="buttons">
             <div className="flex flex-wrap justify-center gap-3">
-              <AdSlot format="88x31" />
-              <AdSlot format="88x31" />
-              <AdSlot format="88x31" />
+              <AdSlot format="88x31" index={0} />
+              <AdSlot format="88x31" index={1} />
+              <AdSlot format="88x31" index={2} />
             </div>
           </FormatCard>
           <FormatCard id="skin">
@@ -151,6 +166,8 @@ export function AdvertisingPage() {
         </div>
       </section>
 
+      <LiveTvBlock />
+
       {/* Devis sur mesure */}
       <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
         <div className="flex flex-col items-start gap-6 rounded-[2rem] bg-[#f4f1ec] p-8 sm:p-12 md:flex-row md:items-center md:justify-between dark:bg-night-card">
@@ -190,6 +207,7 @@ function FormatCard({ id, className = '', children }: { id: string; className?: 
 }
 
 interface Video {
+  file: File
   name: string
   url: string
   seconds: number
@@ -199,37 +217,41 @@ interface ClipFields {
   title: string
   advertiser: string
   contact: string
-  start: string
+  method: PaymentMethod
 }
-type Errors = Partial<Record<keyof ClipFields, string>>
+type Errors = Partial<Record<keyof ClipFields | 'poster', string>>
 
-/** Date du jour au format AAAA-MM-JJ, en heure locale */
-const todayISO = () => {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024
+const MAX_POSTER_BYTES = 5 * 1024 * 1024
+const EMPTY: ClipFields = { title: '', advertiser: '', contact: '', method: 'momo' }
 
-const isEmailOrPhone = (value: string) => {
-  const v = value.trim()
-  if (/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) return true
-  return /^\+?[\d\s.()-]+$/.test(v) && v.replace(/\D/g, '').length >= 8
-}
+const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim())
+const isPhone = (v: string) => /^\+?[\d\s.()-]+$/.test(v.trim()) && v.replace(/\D/g, '').length >= 8
 
-/** Réservation d’un clip : la durée de la vidéo est vérifiée dans le navigateur avant tout envoi. */
+/**
+ * Commande d’un clip : la durée de la vidéo est lue dans le navigateur avant l’envoi
+ * (POST /promotions/clips/, multipart), puis le paiement suit l’action renvoyée par l’API.
+ */
 function ClipForm() {
   const { t, i18n } = useTranslation()
   const lng = i18n.resolvedLanguage ?? 'fr'
-  const [today] = useState(todayISO)
-  const [fields, setFields] = useState<ClipFields>(() => ({ title: '', advertiser: '', contact: '', start: today }))
+  const authenticated = useAuth((s) => s.status === 'authenticated')
+  const [params, setParams] = useSearchParams()
+  const [fields, setFields] = useState<ClipFields>(EMPTY)
   const [errors, setErrors] = useState<Errors>({})
   const [video, setVideo] = useState<Video | null>(null)
+  const [poster, setPoster] = useState<File | null>(null)
   const [videoError, setVideoError] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
   const [status, setStatus] = useState<'idle' | 'paying' | 'done'>('idle')
-  const [position, setPosition] = useState(0)
+  const [position, setPosition] = useState<number | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   // Numéro de la dernière vérification : ignore le résultat d’une vidéo remplacée entre-temps
   const checkId = useRef(0)
+
+  // Retour de la page de paiement : ?payment=<référence>&status=<statut>
+  const returned = params.get('payment') ? params.get('status') : null
 
   // Libère l’adresse temporaire de la vidéo quand elle est remplacée ou quand on quitte la page
   useEffect(() => {
@@ -237,7 +259,12 @@ function ClipForm() {
     return () => URL.revokeObjectURL(video.url)
   }, [video])
 
-  const update = (key: keyof ClipFields) => (e: ChangeEvent<HTMLInputElement>) => {
+  // Au retour du paiement, on fait défiler jusqu’au formulaire
+  useEffect(() => {
+    if (returned) document.getElementById('clip')?.scrollIntoView()
+  }, [returned])
+
+  const update = (key: keyof ClipFields) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFields((f) => ({ ...f, [key]: e.target.value }))
     if (errors[key]) setErrors((er) => ({ ...er, [key]: undefined }))
   }
@@ -252,8 +279,13 @@ function ClipForm() {
     const file = e.target.files?.[0]
     if (!file) return
     const id = ++checkId.current
-    if (!file.type.startsWith('video/')) {
-      rejectVideo(t('static.ads.errors.videoType'))
+    const ext = file.name.split('.').pop()?.toLowerCase()
+    if (ext !== 'mp4' && ext !== 'webm') {
+      rejectVideo(t('errors.video_format'))
+      return
+    }
+    if (file.size > MAX_VIDEO_BYTES) {
+      rejectVideo(t('content.clip.videoSize'))
       return
     }
     setVideoError(null)
@@ -284,7 +316,7 @@ function ClipForm() {
         URL.revokeObjectURL(url)
         rejectVideo(t('static.ads.errors.videoTooLong', { seconds: Math.round(seconds) }))
       } else {
-        setVideo({ name: file.name, url, seconds: Math.round(seconds) })
+        setVideo({ file, name: file.name, url, seconds: Math.min(MAX_SECONDS, Math.max(1, Math.round(seconds))) })
       }
     }
     probe.onerror = () => {
@@ -297,60 +329,99 @@ function ClipForm() {
     probe.src = url
   }
 
+  const onPoster = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null
+    if (file && (!file.type.startsWith('image/') || file.size > MAX_POSTER_BYTES)) {
+      setPoster(null)
+      setErrors((er) => ({ ...er, poster: 'content.clip.posterInvalid' }))
+      e.target.value = ''
+      return
+    }
+    setPoster(file)
+    setErrors((er) => ({ ...er, poster: undefined }))
+  }
+
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const found: Errors = {}
     if (!fields.title.trim()) found.title = 'static.ads.errors.title'
     if (!fields.advertiser.trim()) found.advertiser = 'static.ads.errors.advertiser'
-    if (!isEmailOrPhone(fields.contact)) found.contact = 'static.ads.errors.contact'
-    if (!fields.start || fields.start < today) found.start = 'static.ads.errors.start'
+    if (!isEmail(fields.contact) && !isPhone(fields.contact)) found.contact = 'static.ads.errors.contact'
+    if (errors.poster) found.poster = errors.poster
     setErrors(found)
-    const missingVideo = !video && !checking
-    if (missingVideo && !videoError) setVideoError(t('static.ads.errors.video'))
+    if (!video && !checking && !videoError) setVideoError(t('static.ads.errors.video'))
 
     const first = !video ? 'video' : Object.keys(found)[0]
-    if (first || checking) {
+    if (first || checking || !video) {
       if (first) document.getElementById(`clip-${first}`)?.focus()
       return
     }
 
     setStatus('paying')
-    // TODO : envoyer à l'API (téléversement de la vidéo, paiement carte ou mobile money, mise en file d’attente)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    // Position simulée dans la file d’attente des clips
-    setPosition(Math.floor(Math.random() * 60) + 1)
-    setStatus('done')
+    setFormError(null)
+    const contact = fields.contact.trim()
+    try {
+      const started = await orderClip({
+        title: fields.title.trim(),
+        advertiser: fields.advertiser.trim(),
+        ...(isEmail(contact) ? { contact_email: contact } : { contact_phone: contact }),
+        video: video.file,
+        poster: poster ?? undefined,
+        duration_seconds: video.seconds,
+        method: fields.method,
+      })
+      if (followPaymentAction(started, '/publicite')) {
+        setPosition(started.clip.queue_position)
+        setStatus('done')
+      }
+      // Sinon : redirection vers la page de paiement, puis retour sur /publicite?payment=…&status=…
+    } catch (err) {
+      const { video: vErr, duration_seconds: dErr, ...rest } = apiFieldErrors(err, { contact_phone: 'contact', contact_email: 'contact' })
+      setErrors(rest as Errors)
+      if (vErr || dErr) setVideoError(t(vErr ?? dErr ?? 'errors.generic'))
+      if (!vErr && !dErr && !Object.keys(rest).length) setFormError(errorMessage(err, 'method'))
+      setStatus('idle')
+    }
   }
 
   const reset = () => {
-    setFields({ title: '', advertiser: '', contact: '', start: today })
+    setFields(EMPTY)
     setVideo(null)
+    setPoster(null)
     setVideoError(null)
+    setFormError(null)
     setErrors({})
+    setPosition(null)
     setStatus('idle')
     if (fileInput.current) fileInput.current.value = ''
+    if (returned) {
+      const next = new URLSearchParams(params)
+      next.delete('payment')
+      next.delete('status')
+      setParams(next, { replace: true })
+    }
   }
 
   const price = formatXOF(CLIP_PRICE_XOF.ttc, lng)
-  const startValue = new Date(`${fields.start}T00:00`)
-  const startDate = Number.isNaN(startValue.getTime())
-    ? fields.start
-    : new Intl.DateTimeFormat(lng, { day: 'numeric', month: 'long', year: 'numeric' }).format(startValue)
+  // Le Compte d’Avoir n’est proposé qu’aux artistes connectés
+  const methods: PaymentMethod[] = authenticated ? ['momo', 'card', 'wallet'] : ['momo', 'card']
 
-  const input = (key: keyof ClipFields, props: { type?: string; placeholder?: string; autoComplete?: string; min?: string }) => (
+  const input = (key: 'title' | 'advertiser' | 'contact', props: { placeholder?: string; autoComplete?: string }) => (
     <input
       id={`clip-${key}`}
-      type={props.type ?? 'text'}
+      type="text"
       value={fields[key]}
       onChange={update(key)}
       placeholder={props.placeholder}
       autoComplete={props.autoComplete}
-      min={props.min}
       aria-invalid={!!errors[key]}
       aria-describedby={errors[key] ? `clip-${key}-error` : undefined}
       className={inputClass(!!errors[key])}
     />
   )
+
+  const success = status === 'done' || returned === 'succeeded'
+  const failed = !success && returned !== null && status === 'idle'
 
   return (
     <section aria-labelledby="clip-form-title" className="rounded-3xl bg-white p-6 shadow-[0_30px_70px_-50px_rgb(30_46_41/0.5)] sm:p-10 dark:bg-night-bg">
@@ -358,12 +429,12 @@ function ClipForm() {
         <Clapperboard className="size-6 text-brand-orange" /> {t('static.ads.form.title')}
       </h3>
 
-      {status === 'done' ? (
+      {success ? (
         <div role="status" className="mt-8 rounded-2xl bg-brand-mist p-8 text-center dark:bg-night-card">
           <CheckCircle2 className="mx-auto size-12 text-brand-green dark:text-emerald-400" />
           <p className="mt-4 text-xl font-semibold text-brand-graphite dark:text-white">{t('static.ads.form.successTitle')}</p>
           <p className="mt-2 text-gray-500 dark:text-slate-400">
-            {t('static.ads.form.successText', { title: fields.title.trim(), position, date: startDate })}
+            {position ? t('content.clip.successQueue', { position }) : t('content.clip.successText')}
           </p>
           <button type="button" onClick={reset} className="btn-secondary mt-6 rounded-full px-5 py-2.5">
             {t('static.ads.form.again')}
@@ -371,6 +442,11 @@ function ClipForm() {
         </div>
       ) : (
         <form noValidate onSubmit={onSubmit} className="mt-8 grid gap-6 sm:grid-cols-2">
+          {failed && (
+            <p role="alert" className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700 sm:col-span-2 dark:bg-rose-500/10 dark:text-rose-300">
+              {t('content.clip.paymentFailed')}
+            </p>
+          )}
           {/* Vidéo : champ natif masqué, libellé stylé en zone de dépôt */}
           <div className="sm:col-span-2">
             <p className="mb-2 text-sm font-medium text-brand-graphite dark:text-white">{t('static.ads.form.video')}</p>
@@ -378,7 +454,7 @@ function ClipForm() {
               ref={fileInput}
               id="clip-video"
               type="file"
-              accept="video/*"
+              accept="video/mp4,video/webm,.mp4,.webm"
               onChange={onFile}
               aria-invalid={!!videoError}
               aria-describedby={videoError ? 'clip-video-error' : 'clip-video-hint'}
@@ -423,8 +499,24 @@ function ClipForm() {
           <Field id="clip-contact" label={t('static.ads.form.contact')} error={errors.contact}>
             {input('contact', { placeholder: t('static.ads.form.contactPlaceholder'), autoComplete: 'tel' })}
           </Field>
-          <Field id="clip-start" label={t('static.ads.form.start')} error={errors.start} className="sm:col-span-2">
-            {input('start', { type: 'date', min: today })}
+          <Field id="clip-poster" label={t('content.clip.poster')} error={errors.poster} hint={t('content.clip.posterHint')} optional>
+            <input
+              id="clip-poster"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={onPoster}
+              aria-invalid={!!errors.poster}
+              className="block w-full text-sm text-gray-500 file:mr-3 file:rounded-full file:border-0 file:bg-brand-mist file:px-4 file:py-2 file:text-sm file:font-semibold file:text-brand-green dark:file:bg-night-card dark:file:text-emerald-400"
+            />
+          </Field>
+          <Field id="clip-method" label={t('content.clip.method')} error={errors.method}>
+            <select id="clip-method" value={fields.method} onChange={update('method')} className={inputClass(!!errors.method)}>
+              {methods.map((m) => (
+                <option key={m} value={m}>
+                  {t(`content.clip.methods.${m}`)}
+                </option>
+              ))}
+            </select>
           </Field>
 
           {/* Récapitulatif du prix */}
@@ -447,6 +539,11 @@ function ClipForm() {
           </div>
 
           <div className="sm:col-span-2">
+            {formError && (
+              <p role="alert" className="mb-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">
+                {formError}
+              </p>
+            )}
             <button type="submit" disabled={status === 'paying' || checking} className="btn-action w-full rounded-full px-6 py-3.5">
               {status === 'paying' && <Loader2 className="size-4 animate-spin" />}
               {status === 'paying' ? t('static.ads.form.paying') : t('static.ads.form.pay', { amount: price })}
@@ -455,6 +552,74 @@ function ClipForm() {
           </div>
         </form>
       )}
+    </section>
+  )
+}
+
+/** TV en ligne : direct en cours (lecteur intégré) et prochaines émissions */
+function LiveTvBlock() {
+  const { t, i18n } = useTranslation()
+  const { data, isLoading } = useLiveTv()
+  const fmt = new Intl.DateTimeFormat(i18n.resolvedLanguage, { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+  const live = data?.live
+  const upcoming = data?.upcoming ?? []
+
+  return (
+    <section id="tv" className="mx-auto max-w-7xl scroll-mt-20 px-4 pt-20 sm:px-6">
+      <div className="max-w-2xl">
+        <p className="eyebrow">{t('content.tv.eyebrow')}</p>
+        <h2 className="mt-2 text-3xl font-light tracking-tight text-brand-graphite sm:text-4xl dark:text-white">{t('content.tv.title')}</h2>
+      </div>
+      <div className="mt-10 grid gap-6 lg:grid-cols-[1.6fr_1fr]">
+        <div className="overflow-hidden rounded-3xl bg-brand-graphite">
+          {live ? (
+            <>
+              <div className="relative aspect-video">
+                <iframe
+                  src={live.embed_url}
+                  title={live.title}
+                  allow="autoplay; encrypted-media; picture-in-picture"
+                  allowFullScreen
+                  className="absolute inset-0 h-full w-full"
+                />
+              </div>
+              <div className="flex items-center gap-3 p-5 text-white">
+                <span className="flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-xs font-semibold text-rose-600">
+                  <span className="size-2 animate-pulse rounded-full bg-rose-600" /> {t('static.ads.live')}
+                </span>
+                <span className="font-semibold">{live.title}</span>
+              </div>
+            </>
+          ) : (
+            <div className="grid aspect-video place-items-center p-6 text-center text-white/80">
+              {isLoading ? (
+                <Loader2 className="size-8 animate-spin text-brand-orange" />
+              ) : (
+                <span>
+                  <Radio className="mx-auto size-10 text-brand-orange" />
+                  <span className="mt-3 block">{t('content.tv.offAir')}</span>
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="rounded-3xl border border-brand-green/10 bg-white p-6 dark:border-white/10 dark:bg-night-card">
+          <p className="text-xs font-semibold tracking-[0.2em] text-gray-400 uppercase">{t('content.tv.upcoming')}</p>
+          {upcoming.length ? (
+            <ul className="mt-4 divide-y divide-brand-green/10 dark:divide-white/10">
+              {upcoming.map((s) => (
+                <li key={s.id} className="py-3">
+                  <p className="font-medium text-brand-graphite dark:text-white">{s.title}</p>
+                  {s.starts_at && <p className="text-sm text-gray-500">{fmt.format(new Date(s.starts_at))}</p>}
+                  {s.description && <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">{s.description}</p>}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-4 text-sm text-gray-500">{t('content.tv.none')}</p>
+          )}
+        </div>
+      </div>
     </section>
   )
 }

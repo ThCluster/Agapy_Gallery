@@ -1,17 +1,29 @@
 import { ChevronLeft, ChevronRight, Pause, Play, Radio } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
+import { useLiveClips, useLiveTv } from '@/api/promotions'
 import { Img } from '@/components/ui/Img'
 import { Reveal } from '@/components/ui/Reveal'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { formatXOF } from '@/lib/format'
 import { CLIP_PRICE_XOF } from '@/lib/pricing'
-import { clips } from '@/mocks/homeData'
+import { clips as demoClips } from '@/mocks/homeData'
+import type { PhotoKey } from '@/mocks/photos'
 
 /** Durée maximale d'un clip, et nombre de clips diffusés en boucle sur 24 h */
 const CLIP_SECONDS = 30
 const MAX_CLIPS = 50
+
+/** Clip à l'affiche : vidéo réelle (API) ou clip de démonstration (photo) */
+interface Item {
+  id: string
+  title: string
+  advertiser: string
+  video?: string
+  poster?: string | null
+  photo?: PhotoKey
+}
 
 /**
  * Espace des clips publicitaires : chaque clip passe 30 s puis le suivant
@@ -20,11 +32,32 @@ const MAX_CLIPS = 50
  */
 export function ClipsSection() {
   const { t, i18n } = useTranslation()
+  const { data: live } = useLiveClips()
+  const { data: tv } = useLiveTv()
+  // Clips en diffusion ; sans clip payé, on garde les clips de démonstration
+  const clips: Item[] = live?.length
+    ? live.map((c) => ({ id: `api-${c.id}`, title: c.title, advertiser: c.advertiser, video: c.video, poster: c.poster }))
+    : demoClips.map((c) => ({ id: c.id, title: c.title, advertiser: c.advertiser, photo: c.poster as PhotoKey }))
   const [index, setIndex] = useState(0)
   const [paused, setPaused] = useState(false)
-  const clip = clips[index]
-  const go = (dir: 1 | -1) => setIndex((i) => (i + dir + clips.length) % clips.length)
-  const upNext = [1, 2, 3].map((n) => clips[(index + n) % clips.length])
+  const [progress, setProgress] = useState(0)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const safeIndex = index % clips.length
+  const clip = clips[safeIndex]
+  const go = (dir: 1 | -1) => {
+    setProgress(0)
+    setIndex((i) => (i + dir + clips.length) % clips.length)
+  }
+  const upNext = clips.length > 1 ? [1, 2, 3].slice(0, clips.length - 1).map((n) => clips[(safeIndex + n) % clips.length]) : []
+  const total = live?.length ? live.length : MAX_CLIPS
+
+  // Lecture / pause de la vidéo réelle
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v) return
+    if (paused) v.pause()
+    else v.play().catch(() => setPaused(true))
+  }, [paused, clip.id])
 
   return (
     <section className="py-24">
@@ -38,10 +71,38 @@ export function ClipsSection() {
           <Reveal>
             <div className="overflow-hidden rounded-2xl bg-brand-mist text-white shadow-[0_24px_60px_-30px_rgb(30_46_41/0.45)]">
               <div className="relative aspect-video">
-                <Img key={clip.id} photo={clip.poster} alt="" className="h-full w-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                {clip.video ? (
+                  <video
+                    key={clip.id}
+                    ref={videoRef}
+                    src={clip.video}
+                    poster={clip.poster ?? undefined}
+                    autoPlay
+                    muted
+                    playsInline
+                    preload="auto"
+                    // Le clip suivant démarre tout seul, en boucle (un seul clip : il recommence)
+                    onEnded={() => {
+                      if (clips.length === 1 && videoRef.current) {
+                        videoRef.current.currentTime = 0
+                        void videoRef.current.play()
+                      } else go(1)
+                    }}
+                    onTimeUpdate={(e) => {
+                      const v = e.currentTarget
+                      if (v.duration) setProgress(v.currentTime / v.duration)
+                    }}
+                    onError={() => {
+                      if (clips.length > 1) go(1)
+                    }}
+                    className="h-full w-full bg-black object-cover"
+                  />
+                ) : (
+                  <Img key={clip.id} photo={clip.photo ?? 'hero_gallery'} alt="" className="h-full w-full object-cover" />
+                )}
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
                 <span className="absolute top-4 left-4 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold tracking-wider uppercase backdrop-blur">
-                  {t('home.clips.ad')} · {index + 1} / {MAX_CLIPS}
+                  {t('home.clips.ad')} · {safeIndex + 1} / {total}
                 </span>
                 <button
                   type="button"
@@ -68,26 +129,45 @@ export function ClipsSection() {
               </div>
               {/* Barre de progression : à la fin des 30 s, le clip suivant démarre tout seul */}
               <div className="h-1 bg-brand-green/10">
-                <div
-                  key={clip.id}
-                  onAnimationEnd={() => go(1)}
-                  className="h-full origin-left bg-brand-orange"
-                  style={{ animation: `agapy-progress ${CLIP_SECONDS}s linear forwards`, animationPlayState: paused ? 'paused' : 'running' }}
-                />
+                {clip.video ? (
+                  <div className="h-full origin-left bg-brand-orange" style={{ transform: `scaleX(${progress})` }} />
+                ) : (
+                  <div
+                    key={clip.id}
+                    onAnimationEnd={() => go(1)}
+                    className="h-full origin-left bg-brand-orange"
+                    style={{ animation: `agapy-progress ${CLIP_SECONDS}s linear forwards`, animationPlayState: paused ? 'paused' : 'running' }}
+                  />
+                )}
               </div>
             </div>
           </Reveal>
 
           <Reveal className="flex flex-col gap-4">
             {/* À suivre */}
+            {upNext.length > 0 && (
             <div className="rounded-2xl border border-brand-green/10 bg-brand-mist p-4 dark:border-white/10 dark:bg-night-card">
               <p className="mb-3 text-xs font-semibold tracking-[0.16em] text-gray-500 uppercase">{t('home.clips.next')}</p>
               <ul className="space-y-3">
                 {upNext.map((c) => (
                   <li key={c.id}>
-                    <button type="button" onClick={() => setIndex(clips.indexOf(c))} className="flex w-full items-center gap-3 rounded-lg text-left text-brand-graphite hover:text-brand-green dark:text-white">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProgress(0)
+                        setIndex(clips.indexOf(c))
+                      }}
+                      className="flex w-full items-center gap-3 rounded-lg text-left text-brand-graphite hover:text-brand-green dark:text-white">
                       <span className="block h-12 w-20 shrink-0 overflow-hidden rounded-md">
-                        <Img photo={c.poster} alt="" className="h-full w-full object-cover" />
+                        {c.photo ? (
+                          <Img photo={c.photo} alt="" className="h-full w-full object-cover" />
+                        ) : c.poster ? (
+                          <img src={c.poster} alt="" loading="lazy" className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="grid h-full w-full place-items-center bg-brand-graphite text-white/70">
+                            <Play className="size-4" />
+                          </span>
+                        )}
                       </span>
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-medium">{c.title}</span>
@@ -98,6 +178,7 @@ export function ClipsSection() {
                 ))}
               </ul>
             </div>
+            )}
 
             {/* Offre de diffusion */}
             <div className="rounded-2xl bg-brand-orange p-5 text-white">
@@ -114,14 +195,14 @@ export function ClipsSection() {
             </div>
 
             {/* AGAPY TV : espace pour les émissions en direct */}
-            <Link to="/publicite" className="group flex items-center gap-4 rounded-2xl border border-brand-green/10 bg-white p-4 text-brand-graphite transition hover:border-brand-green/30 dark:border-white/10 dark:bg-night-card dark:text-white">
+            <Link to="/publicite#tv" className="group flex items-center gap-4 rounded-2xl border border-brand-green/10 bg-white p-4 text-brand-graphite transition hover:border-brand-green/30 dark:border-white/10 dark:bg-night-card dark:text-white">
               <span className="relative grid size-11 shrink-0 place-items-center rounded-full bg-rose-50 text-rose-500">
                 <Radio className="size-5" />
                 <span className="absolute top-1 right-1 size-2.5 animate-pulse rounded-full bg-rose-500 motion-reduce:animate-none" />
               </span>
               <span>
                 <span className="block text-sm font-semibold">{t('home.clips.tvTitle')}</span>
-                <span className="block text-xs text-gray-500">{t('home.clips.tvText')}</span>
+                <span className="block text-xs text-gray-500">{tv?.live ? `${t('static.ads.live')} · ${tv.live.title}` : t('home.clips.tvText')}</span>
               </span>
             </Link>
           </Reveal>

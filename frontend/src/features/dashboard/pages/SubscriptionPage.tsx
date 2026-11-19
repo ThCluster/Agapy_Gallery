@@ -1,10 +1,11 @@
 import { CalendarCheck, CheckCircle2, Lock, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { formatXOF } from '@/lib/format'
-import { PRICES, VAT_RATE, withVat } from '@/lib/pricing'
-import { subscriptionState, useArtistSpace } from '@/stores/artistSpace'
-import { PayMethods, type PayMethod } from '../PayMethods'
+import { useRenew, useSubscription } from '@/api/artistSpace'
+import { followPaymentAction } from '@/api/payments'
+import { errorMessage, toNumber } from '@/lib/api'
+import { PaymentReturnNotice, PayMethods, type PayMethod } from '../PayMethods'
+import { formatMoney } from '../revenue'
 
 const STATE_CLASS = { active: 'status-success', soon: 'status-pending', standby: 'status-error' } as const
 
@@ -16,21 +17,34 @@ const STATE_CLASS = { active: 'status-success', soon: 'status-pending', standby:
 export function SubscriptionPage() {
   const { t, i18n } = useTranslation()
   const lng = i18n.resolvedLanguage
-  const { openedAt, expiresAt, renew, spend } = useArtistSpace()
+  const { data, isPending, isError, error, refetch } = useSubscription()
+  const renew = useRenew()
   const [method, setMethod] = useState<PayMethod>('momo')
   const [status, setStatus] = useState<'idle' | 'paying' | 'done'>('idle')
-  const sub = subscriptionState(expiresAt)
-  const fee = PRICES.renewal.africa.amount
-  const total = withVat(fee)
   const dateFmt = new Intl.DateTimeFormat(lng, { day: 'numeric', month: 'long', year: 'numeric' })
 
-  const pay = async () => {
+  if (isPending) return <p className="text-sm text-gray-500">{t('dashboard.loading')}</p>
+  if (isError) return <p className="text-sm text-rose-700">{errorMessage(error)}</p>
+
+  const sub = { state: data.state, daysLeft: data.days_left }
+  const openedAt = data.opened_at
+  const expiresAt = data.expires_at
+  const quote = data.renewal_quote
+  const formatXOF = (v: number, l?: string) => formatMoney(v, quote.currency, l)
+  const fee = toNumber(quote.amount_ht)
+  const total = toNumber(quote.amount_ttc)
+
+  const pay = () => {
     setStatus('paying')
-    if (method === 'wallet') spend(total, t('dashboard.subscription.walletLabel'))
-    // TODO : paiement du renouvellement via l'API
-    await new Promise((r) => setTimeout(r, 1500))
-    renew()
-    setStatus('done')
+    renew.mutate(method, {
+      onSuccess: (started) => {
+        if (followPaymentAction(started, '/tableau-de-bord/abonnement')) {
+          void refetch()
+          setStatus('done')
+        }
+      },
+      onError: () => setStatus('idle'),
+    })
   }
 
   return (
@@ -40,6 +54,8 @@ export function SubscriptionPage() {
         <h1 className="mt-1 text-3xl font-light tracking-tight">{t('dashboard.subscription.title')}</h1>
         <p className="mt-1 max-w-2xl text-sm text-gray-500">{t('dashboard.subscription.subtitle')}</p>
       </div>
+
+      <PaymentReturnNotice />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-brand-green/10 bg-white p-5 dark:border-white/10 dark:bg-night-card">
@@ -83,7 +99,7 @@ export function SubscriptionPage() {
               </div>
               <div className="flex justify-between text-gray-500">
                 <dt>{t('signup.payment.vat')}</dt>
-                <dd>{formatXOF(fee * VAT_RATE, lng)}</dd>
+                <dd>{formatXOF(toNumber(quote.vat), lng)}</dd>
               </div>
               <div className="flex items-baseline justify-between border-t border-brand-graphite/10 pt-3 dark:border-white/10">
                 <dt className="font-semibold">{t('signup.payment.total')}</dt>
@@ -96,6 +112,7 @@ export function SubscriptionPage() {
             <div className="mt-6">
               <PayMethods value={method} onChange={setMethod} amount={total} />
             </div>
+            {renew.isError && <p className="mt-4 text-sm text-rose-700">{errorMessage(renew.error, 'method')}</p>}
             <button type="button" onClick={pay} disabled={status === 'paying'} className="btn-action mt-6 rounded-full px-7 py-3.5">
               <Lock className="size-4" /> {status === 'paying' ? t('signup.paying') : t('payment.pay', { amount: formatXOF(total, lng) })}
             </button>

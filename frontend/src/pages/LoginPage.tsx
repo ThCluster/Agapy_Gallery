@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowLeft, ChevronDown, Eye, EyeOff, Loader2, Lock, Phone } from 'lucide-react'
-import { getCountryCallingCode, parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js'
+import { getCountryCallingCode, type CountryCode } from 'libphonenumber-js'
 import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -9,6 +9,7 @@ import { Logo } from '@/components/ui/Logo'
 import { ArtShowcase } from '@/features/auth/ArtShowcase'
 import { AFRICA, countryName, OTHERS } from '@/features/auth/countries'
 import { loginSchema, type LoginForm } from '@/features/auth/loginSchema'
+import { errorMessage } from '@/lib/api'
 import { useAuth } from '@/stores/auth'
 
 export function LoginPage() {
@@ -20,6 +21,7 @@ export function LoginPage() {
   const target = back && back.startsWith('/') && !back.startsWith('//') ? back : '/tableau-de-bord'
   const login = useAuth((s) => s.login)
   const [showPassword, setShowPassword] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
   const lng = i18n.resolvedLanguage ?? 'fr'
 
   const {
@@ -35,10 +37,19 @@ export function LoginPage() {
   const country = useWatch({ control, name: 'country' }) as CountryCode
 
   const onSubmit = async (data: LoginForm) => {
-    // Identifiant au format international : +225 07 00 00 00 00 → +2250700000000
-    const e164 = parsePhoneNumberFromString(data.phone, data.country as CountryCode)?.number ?? data.phone
-    await login(e164, data.password)
-    navigate(target)
+    setFormError(null)
+    try {
+      // Le backend normalise le numéro à partir du pays sélectionné (format E.164)
+      await login({
+        phone_country: data.country,
+        phone: data.phone,
+        password: data.password,
+        remember: data.remember,
+      })
+      navigate(target, { replace: true })
+    } catch (e) {
+      setFormError(errorMessage(e))
+    }
   }
 
   const option = (code: CountryCode) => (
@@ -167,6 +178,12 @@ export function LoginPage() {
               <input type="checkbox" {...register('remember')} className="size-4 rounded accent-brand-green" />
               {t('login.remember')}
             </label>
+
+            {formError && (
+              <p role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-400/30 dark:bg-rose-500/10 dark:text-rose-300">
+                {formError}
+              </p>
+            )}
 
             <button type="submit" disabled={isSubmitting} className="btn-primary w-full rounded-full py-4 text-base">
               {isSubmitting ? <Loader2 className="size-5 animate-spin" /> : null}

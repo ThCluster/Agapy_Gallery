@@ -1,6 +1,8 @@
 import { AlertTriangle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
+import { useSitePage } from '@/api/site'
+import { RichText } from './RichText'
 
 interface Section {
   id: string
@@ -17,7 +19,9 @@ const UPDATED = '2026-11-17'
 export function TermsPage() {
   const { t, i18n } = useTranslation()
   const sections = t('static.terms.sections', { returnObjects: true }) as Section[]
-  const date = new Intl.DateTimeFormat(i18n.resolvedLanguage, { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(UPDATED))
+  // Texte publié depuis l'administration ; repli sur le texte local si absent
+  const { data: remote } = useSitePage('terms', i18n.resolvedLanguage)
+  const date = new Intl.DateTimeFormat(i18n.resolvedLanguage, { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(remote?.updated_at ?? UPDATED))
 
   return (
     <>
@@ -25,7 +29,7 @@ export function TermsPage() {
         <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:py-20">
           <p className="eyebrow">{t('static.terms.eyebrow')}</p>
           <h1 className="mt-3 max-w-3xl text-4xl leading-tight font-light tracking-tight text-brand-graphite sm:text-5xl dark:text-white">
-            {t('static.terms.title')}
+            {remote?.title || t('static.terms.title')}
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-relaxed text-gray-500 dark:text-slate-400">{t('static.terms.lead')}</p>
           <p className="mt-4 text-sm text-gray-400">{t('static.common.updated', { date })}</p>
@@ -37,6 +41,22 @@ export function TermsPage() {
         </div>
       </header>
 
+      {remote ? (
+        <div className="mx-auto max-w-7xl px-4 pt-6 pb-20 sm:px-6">
+          <article className="max-w-3xl">
+            <RichText text={remote.body} />
+            <p className="mt-10 text-sm text-gray-500">
+              <Link to="/infos-legales" className="link">
+                {t('static.legal.title')}
+              </Link>
+              {' · '}
+              <Link to="/contact" className="link">
+                {t('static.common.contactUs')}
+              </Link>
+            </p>
+          </article>
+        </div>
+      ) : (
       <div className="mx-auto grid max-w-7xl gap-12 px-4 pt-6 pb-20 sm:px-6 lg:grid-cols-[16rem_1fr]">
         {/* Sommaire */}
         <nav aria-labelledby="terms-toc" className="lg:sticky lg:top-28 lg:self-start">
@@ -92,6 +112,7 @@ export function TermsPage() {
           </p>
         </article>
       </div>
+      )}
     </>
   )
 }

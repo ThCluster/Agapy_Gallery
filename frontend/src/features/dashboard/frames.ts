@@ -1,5 +1,10 @@
 import type { FrameId } from '@/stores/artistSpace'
 
+export type { FrameId }
+
+/** Cadres proposés (mêmes valeurs que GET /catalog/frames/) */
+export const FRAMES: FrameId[] = ['black', 'wood', 'gold', 'white', 'none']
+
 /** Cadres virtuels proposés aux artistes pour embellir leurs œuvres (cahier des charges, p. 4) */
 export const FRAME_CLASS: Record<FrameId, string> = {
   black: 'border-[8px] border-[#2b2b2b] bg-white p-4',

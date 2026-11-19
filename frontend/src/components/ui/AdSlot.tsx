@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
+import { type AdApiFormat, useAds } from '@/api/promotions'
 
 /** Formats publicitaires prévus au cahier des charges */
 const SIZES = {
@@ -11,10 +12,43 @@ const SIZES = {
 
 export type AdFormat = keyof typeof SIZES
 
-/** Emplacement publicitaire, en attendant les campagnes des annonceurs. */
-export function AdSlot({ format, className = '' }: { format: AdFormat; className?: string }) {
+/** Nom du format côté API (/promotions/ads/?format=) */
+const API_FORMATS: Record<AdFormat, AdApiFormat> = {
+  '468x60': 'banner_468x60',
+  '336x280': 'billboard_336x280',
+  '160x600': 'skyscraper_160x600',
+  '88x31': 'button_88x31',
+}
+
+/**
+ * Espace publicitaire : affiche la campagne en cours pour ce format (`index` : rang de la campagne,
+ * pour les boutons 88 × 31 affichés par trois), sinon l'emplacement « Votre publicité ici ».
+ */
+export function AdSlot({ format, index = 0, className = '' }: { format: AdFormat; index?: number; className?: string }) {
   const { t } = useTranslation()
+  const { data: ads } = useAds(API_FORMATS[format])
+  const ad = ads?.[index]
   const small = format === '88x31'
+
+  if (ad) {
+    return (
+      <a
+        href={ad.link_url || '#'}
+        target="_blank"
+        rel="sponsored noopener noreferrer"
+        title={ad.advertiser}
+        className={`relative block overflow-hidden border border-brand-graphite/10 bg-white dark:border-white/10 dark:bg-night-card ${SIZES[format]} ${className}`}
+      >
+        <img src={ad.image} alt={ad.alt_text || ad.advertiser} loading="lazy" className="h-full w-full object-cover" />
+        {!small && (
+          <span className="absolute top-1 right-1 rounded bg-black/45 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-white uppercase">
+            {t('ads.label')}
+          </span>
+        )}
+      </a>
+    )
+  }
+
   return (
     <Link
       to="/publicite"
@@ -44,7 +78,7 @@ export function PageSkin() {
     <div aria-hidden={false} className="pointer-events-none fixed inset-x-0 top-28 z-10 hidden min-[1720px]:block">
       <div className="mx-auto flex max-w-[1680px] justify-between px-4">
         <AdSlot format="160x600" className="pointer-events-auto" />
-        <AdSlot format="160x600" className="pointer-events-auto" />
+        <AdSlot format="160x600" index={1} className="pointer-events-auto" />
       </div>
     </div>
   )

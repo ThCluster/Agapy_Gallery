@@ -3,8 +3,10 @@ import { createJSONStorage, persist } from 'zustand/middleware'
 import type { PhotoKey } from '@/mocks/photos'
 
 /**
- * Données de l'espace artiste (simulation en attendant l'API Django) :
- * abonnement annuel, Compte d'Avoir, œuvres publiées et statut de la galerie.
+ * OBSOLÈTE : simulation locale de l'espace artiste. Les pages de l'espace utilisent désormais
+ * les hooks react-query de `@/api/artistSpace` (useSubscription, useMyGallery, useUpdateGallery,
+ * useWallet…). Ce store reste le temps que DashboardLayout et ProfilePage soient branchés ;
+ * le type `FrameId` reste la référence des cadres.
  */
 
 export type WorkStatus = 'published' | 'pending' | 'rejected'

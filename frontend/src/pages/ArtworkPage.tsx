@@ -1,25 +1,40 @@
 import { ArrowLeft, MapPin, Ruler, ShieldCheck, TrainFront } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
+import { useArtist, useArtwork, workRatio } from '@/api/catalog'
 import { Img } from '@/components/ui/Img'
 import { Presented } from '@/components/ui/Presented'
 import { SupportCard } from '@/features/artist/SupportCard'
+import { errorMessage } from '@/lib/api'
 import { disciplineOf } from '@/lib/discipline'
 import { formatSize } from '@/lib/format'
-import { artworkSummary, getArtist } from '@/mocks/artistProfiles'
-import { allWorks } from '@/mocks/homeData'
 
 /** Page d'une œuvre : présentation, informations, droits d'auteur et soutien à l'artiste. */
 export function ArtworkPage() {
   const { artworkId = '' } = useParams()
   const { t } = useTranslation()
-  const work = allWorks.find((w) => w.id === artworkId)
-  const data = work ? getArtist(work.artistId) : null
+  const workQuery = useArtwork(artworkId)
+  const work = workQuery.data
+  const { data: artist, isPending: artistPending } = useArtist(work?.artist_id ?? '')
 
-  if (!work || !data) {
+  if (workQuery.isPending || (work && artistPending)) {
+    return (
+      <div className="mx-auto grid max-w-7xl animate-pulse gap-12 px-4 py-14 sm:px-6 lg:grid-cols-[1.2fr_1fr]" aria-busy>
+        <div className="min-h-[420px] rounded-3xl bg-brand-mist dark:bg-night-card" />
+        <div className="space-y-4">
+          <div className="h-10 w-2/3 rounded bg-brand-mist dark:bg-night-card" />
+          <div className="h-4 w-1/2 rounded bg-brand-mist dark:bg-night-card" />
+          <div className="h-32 rounded bg-brand-mist dark:bg-night-card" />
+        </div>
+      </div>
+    )
+  }
+
+  if (!work || !artist) {
     return (
       <section className="mx-auto max-w-2xl px-4 py-28 text-center">
         <h1 className="text-3xl font-light">{t('search.page.artworkNotFound')}</h1>
+        {workQuery.error && (workQuery.error as { status?: number }).status !== 404 && <p className="mt-3 text-gray-500">{errorMessage(workQuery.error)}</p>}
         <Link to="/recherche?mode=artwork" className="btn-primary mt-8 rounded-full px-6 py-3">
           {t('artist.notFound.cta')}
         </Link>
@@ -27,7 +42,7 @@ export function ArtworkPage() {
     )
   }
 
-  const { artist, profile, works } = data
+  const works = artist.artworks
   const discipline = disciplineOf(work)
   const others = works.filter((w) => w.id !== work.id).slice(0, 4)
 
@@ -44,7 +59,7 @@ export function ArtworkPage() {
             <div className="relative flex min-h-[420px] items-center justify-center overflow-hidden rounded-3xl bg-[#f4f1ec] px-6 py-14 dark:bg-night-card">
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgb(255_255_255/0.95),transparent_65%)]" />
               <div className="relative">
-                <Presented discipline={discipline} photo={work.photo} alt={`${work.title}, ${artist.name}`} large />
+                <Presented discipline={discipline} src={work.image} size={workRatio(work)} alt={`${work.title}, ${artist.name}`} large />
               </div>
             </div>
 
@@ -53,7 +68,7 @@ export function ArtworkPage() {
               <h1 className="mt-2 text-4xl font-light tracking-tight sm:text-5xl">{work.title}</h1>
               <Link to={`/artistes/${artist.id}`} className="mt-4 flex items-center gap-3 text-brand-ink hover:text-brand-green dark:text-slate-300">
                 <span className="block size-10 overflow-hidden rounded-full bg-brand-mist">
-                  <Img photo={profile.portrait ?? artist.cover} alt="" className="h-full w-full object-cover" />
+                  <Img src={artist.photo ?? artist.cover} alt="" className="h-full w-full object-cover" />
                 </span>
                 <span>
                   <span className="block font-semibold">{artist.name}</span>
@@ -63,7 +78,8 @@ export function ArtworkPage() {
                 </span>
               </Link>
 
-              <p className="mt-6 text-[17px] leading-relaxed text-brand-ink dark:text-slate-300">{artworkSummary(work, artist)}</p>
+              <p className="mt-6 text-[17px] leading-relaxed text-brand-ink dark:text-slate-300">{work.summary ||
+                  t('catalog.artwork.summary', { title: work.title, name: artist.name, city: artist.city, technique: work.technique, h: work.size[0], w: work.size[1] })}</p>
 
               <dl className="mt-6 divide-y divide-brand-graphite/10 border-y border-brand-graphite/10 text-sm dark:divide-white/10 dark:border-white/10">
                 <div className="flex justify-between gap-4 py-3">
@@ -81,9 +97,11 @@ export function ArtworkPage() {
                   <dd className="text-brand-graphite dark:text-white">{t('artist.address', { n: artist.address })}</dd>
                 </div>
               </dl>
-              <p className="mt-4 flex items-center gap-2 text-sm text-gray-500">
-                <ShieldCheck className="size-4 text-brand-green" /> {t('artist.protectedBy', { office: profile.copyrightOffice })}
-              </p>
+              {(work.copyright_office || artist.copyright_office) && (
+                <p className="mt-4 flex items-center gap-2 text-sm text-gray-500">
+                  <ShieldCheck className="size-4 text-brand-green" /> {t('artist.protectedBy', { office: work.copyright_office || artist.copyright_office })}
+                </p>
+              )}
               <Link to={`/ville/${artist.id}`} className="btn-action mt-6 rounded-full px-6 py-3">
                 <TrainFront className="size-4" /> {t('artwork.seeInVilla')}
               </Link>
@@ -101,7 +119,7 @@ export function ArtworkPage() {
                 <li key={w.id}>
                   <Link to={`/oeuvres/${w.id}`} className="group block">
                     <span className="block transition duration-500 group-hover:-translate-y-1">
-                      <Presented discipline={disciplineOf(w)} photo={w.photo} alt={w.title} />
+                      <Presented discipline={disciplineOf(w)} src={w.image} size={workRatio(w)} alt={w.title} />
                     </span>
                     <span className="mt-3 block text-sm font-semibold text-brand-graphite group-hover:text-brand-green dark:text-white">{w.title}</span>
                     <span className="block text-xs text-gray-500">{w.technique}</span>

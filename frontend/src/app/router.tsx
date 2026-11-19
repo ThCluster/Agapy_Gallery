@@ -53,6 +53,10 @@ export const router = createBrowserRouter([
           { path: 'inscription', lazy: load(() => import('@/pages/SignupPage'), 'SignupPage') },
           { path: 'recherche', element: <SearchPage /> },
           { path: 'paiement', lazy: load(() => import('@/pages/PaymentPage'), 'PaymentPage') },
+          // Paiement simulé (développement) et retour du prestataire : ?ref=<référence>
+          { path: 'paiement/simulation', lazy: load(() => import('@/pages/PaymentSimulationPage'), 'PaymentSimulationPage') },
+          { path: 'newsletter/desinscription', lazy: load(() => import('@/pages/static/NewsletterUnsubscribePage'), 'NewsletterUnsubscribePage') },
+          { path: 'forum/:topicId', lazy: load(() => import('@/pages/static/ForumTopicPage'), 'ForumTopicPage') },
           { path: 'artistes', element: <ArtistsPage /> },
           { path: 'galeries-gratuites', element: <FreeGalleriesPage /> },
           { path: 'peinture', element: <DisciplinePage key="peinture" discipline="peinture" /> },

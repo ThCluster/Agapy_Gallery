@@ -1,22 +1,72 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js'
-import { ArrowLeft, ArrowRight, Check, HeartHandshake, Lock, Mail, PartyPopper, Wallet } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, HeartHandshake, Loader2, Lock, Mail, PartyPopper, RotateCcw, Wallet } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { FormProvider, useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { Img } from '@/components/ui/Img'
 import { DEFAULT_VALUES, signupSchema, stepFields, type SignupForm } from '@/features/signup/schema'
 import { StepCivility, StepContact, StepIdentity, StepPayment, StepPayout } from '@/features/signup/steps'
+import { signup, startSignupPayment } from '@/api/accounts'
+import { followPaymentAction, getPayment } from '@/api/payments'
+import { ApiError, errorMessage } from '@/lib/api'
 
 const STEPS = ['civility', 'identity', 'contact', 'payout', 'payment'] as const
 const DRAFT_KEY = 'agapy-signup-draft'
+/** Inscription envoyée, en attente du paiement des frais d'ouverture */
+const PENDING_KEY = 'agapy-signup-pending'
+
+interface Pending {
+  id: string
+  login: string
+}
+
+function readPending(): Pending | null {
+  try {
+    return JSON.parse(sessionStorage.getItem(PENDING_KEY) ?? 'null') as Pending | null
+  } catch {
+    return null
+  }
+}
+
+function savePending(p: Pending | null) {
+  try {
+    if (p) sessionStorage.setItem(PENDING_KEY, JSON.stringify(p))
+    else sessionStorage.removeItem(PENDING_KEY)
+  } catch {
+    // stockage indisponible
+  }
+}
+
+const snake = (k: string) => k.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
+const camel = (k: string) => k.replace(/_([a-z])/g, (_m, c: string) => c.toUpperCase())
+
+const PERSON_FIELDS = ['lastName', 'firstNames', 'birthDate', 'birthPlace', 'artistName']
+const ORG_FIELDS = ['orgName', 'foundedDate', 'foundedPlace']
+
+/** Formulaire → champs de l'API (snake_case, photo en fichier, champs inutiles écartés) */
+function toApi(data: SignupForm): Record<string, unknown> {
+  const skip = new Set<string>(['paymentMethod', 'photo', ...(data.civility === 'org' ? PERSON_FIELDS : ORG_FIELDS)])
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(data)) if (!skip.has(k)) out[snake(k)] = v
+  if (!data.payoutMomo) Object.assign(out, { momo_operator: '', momo_number: '' })
+  if (!data.payoutIban) Object.assign(out, { iban: '', account_holder: '', bank_name: '' })
+  out.photo = data.photo?.[0]
+  return out
+}
 
 /** Brouillon enregistré dans le navigateur (hors photo), pour ne rien perdre en cas de rechargement */
 function loadDraft(): SignupForm {
   try {
     const raw = sessionStorage.getItem(DRAFT_KEY)
-    if (raw) return { ...DEFAULT_VALUES, ...JSON.parse(raw), photo: undefined, acceptTerms: false }
+    if (raw)
+      return {
+        ...DEFAULT_VALUES,
+        ...JSON.parse(raw),
+        photo: undefined,
+        acceptTerms: false,
+      }
   } catch {
     // stockage indisponible : on repart d'un formulaire vide
   }
@@ -27,9 +77,19 @@ export function SignupPage() {
   const { t } = useTranslation()
   const [step, setStep] = useState(0)
   const [done, setDone] = useState<string | null>(null)
+  const [params, setParams] = useSearchParams()
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  // Inscription déjà enregistrée dont le paiement a échoué : on relance le paiement seul
+  const [retry, setRetry] = useState<Pending | null>(null)
+  const [paying, setPaying] = useState(false)
+  const [checking, setChecking] = useState(() => !!params.get('payment'))
 
-  const form = useForm<SignupForm>({ resolver: zodResolver(signupSchema), defaultValues: loadDraft(), mode: 'onTouched' })
-  const { handleSubmit, trigger, control, subscribe, formState } = form
+  const form = useForm<SignupForm>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: loadDraft(),
+    mode: 'onTouched',
+  })
+  const { handleSubmit, trigger, control, subscribe, formState, setError, getValues } = form
   const civility = useWatch({ control, name: 'civility' })
 
   // Sauvegarde automatique du brouillon
@@ -49,6 +109,68 @@ export function SignupPage() {
     [subscribe],
   )
 
+  const finish = (login: string) => {
+    savePending(null)
+    try {
+      sessionStorage.removeItem(DRAFT_KEY)
+    } catch {
+      // rien à nettoyer
+    }
+    setDone(login)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // Retour du paiement des frais d'ouverture : /inscription?paid=1&payment=<réf>&status=<statut>
+  useEffect(() => {
+    const ref = params.get('payment')
+    if (!ref) return
+    let cancelled = false
+    const pending = readPending()
+    const failed = (message: string) => {
+      setStep(STEPS.length - 1)
+      setRetry(pending)
+      setSubmitError(message)
+    }
+    getPayment(ref)
+      .then((p) => {
+        if (cancelled) return
+        if (p.status === 'succeeded') finish(pending?.login ?? '')
+        else failed(t('auth.signup.paymentFailed'))
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) failed(errorMessage(e))
+      })
+      .finally(() => {
+        if (cancelled) return
+        setChecking(false)
+        setParams({}, { replace: true })
+      })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /** Lance le paiement des frais d'ouverture (redirection vers le prestataire) */
+  const pay = async (pending: Pending, method: 'momo' | 'card') => {
+    savePending(pending)
+    const started = await startSignupPayment(pending.id, method)
+    if (followPaymentAction(started, '/inscription?paid=1')) finish(pending.login)
+  }
+
+  const retryPayment = async () => {
+    if (!retry) return
+    setPaying(true)
+    setSubmitError(null)
+    try {
+      await pay(retry, getValues('paymentMethod'))
+    } catch (e) {
+      setSubmitError(errorMessage(e))
+    } finally {
+      setPaying(false)
+    }
+  }
+
   const goTo = (s: number) => {
     setStep(s)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -59,19 +181,45 @@ export function SignupPage() {
   }
 
   const onSubmit = async (data: SignupForm) => {
-    // TODO : envoyer l'inscription et lancer le paiement (mobile money ou carte) via l'API
-    await new Promise((r) => setTimeout(r, 1400))
-    const login = parsePhoneNumberFromString(data.phone, data.phoneCountry as CountryCode)?.formatInternational() ?? data.phone
+    setSubmitError(null)
+    let created
     try {
-      sessionStorage.removeItem(DRAFT_KEY)
-    } catch {
-      // rien à nettoyer
+      created = await signup(toApi(data))
+    } catch (e) {
+      // Erreurs par champ : placées sur le formulaire, retour à la première étape concernée
+      const placed: (keyof SignupForm)[] = []
+      if (e instanceof ApiError) {
+        for (const [key, code] of Object.entries(e.fieldCodes())) {
+          const field = camel(key) as keyof SignupForm
+          if (field in DEFAULT_VALUES) {
+            setError(field, { message: `errors.${code}` })
+            placed.push(field)
+          }
+        }
+      }
+      const first = STEPS.findIndex((_s, i) => stepFields(i, data.civility).some((f) => placed.includes(f)))
+      if (first >= 0 && first !== step) goTo(first)
+      setSubmitError(errorMessage(e))
+      return
     }
-    setDone(login)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    const login = created.login || (parsePhoneNumberFromString(data.phone, data.phoneCountry as CountryCode)?.formatInternational() ?? data.phone)
+    const pending = { id: created.id, login }
+    try {
+      await pay(pending, data.paymentMethod)
+    } catch (e) {
+      setRetry(pending)
+      setSubmitError(errorMessage(e))
+    }
   }
 
-  if (done) return <SignupDone login={done} />
+  if (done !== null) return <SignupDone login={done} />
+  if (checking)
+    return (
+      <section className="mx-auto flex max-w-xl flex-col items-center px-4 py-24 text-center text-gray-500">
+        <Loader2 className="size-8 animate-spin text-brand-green" />
+        <p className="mt-4">{t('auth.signup.checking')}</p>
+      </section>
+    )
 
   const isLast = step === STEPS.length - 1
 
@@ -111,7 +259,11 @@ export function SignupPage() {
                   >
                     <span
                       className={`grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold transition ${
-                        state === 'done' ? 'bg-brand-green text-white' : state === 'current' ? 'bg-brand-orange text-white shadow-lg shadow-brand-orange/30' : 'bg-brand-mist text-gray-400 dark:bg-night-card'
+                        state === 'done'
+                          ? 'bg-brand-green text-white'
+                          : state === 'current'
+                            ? 'bg-brand-orange text-white shadow-lg shadow-brand-orange/30'
+                            : 'bg-brand-mist text-gray-400 dark:bg-night-card'
                       }`}
                     >
                       {state === 'done' ? <Check className="size-4" /> : i + 1}
@@ -149,6 +301,12 @@ export function SignupPage() {
                 {step === 4 && <StepPayment />}
               </div>
 
+              {submitError && (
+                <p role="alert" className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-400/30 dark:bg-rose-500/10 dark:text-rose-300">
+                  {submitError}
+                </p>
+              )}
+
               <div className="mt-10 flex flex-col-reverse gap-3 border-t border-brand-graphite/10 pt-6 sm:flex-row sm:items-center sm:justify-between dark:border-white/10">
                 {step > 0 ? (
                   <button type="button" onClick={() => goTo(step - 1)} className="btn-secondary rounded-full px-5 py-3">
@@ -159,7 +317,11 @@ export function SignupPage() {
                     {t('signup.haveAccount')}
                   </Link>
                 )}
-                {isLast ? (
+                {isLast && retry ? (
+                  <button type="button" onClick={retryPayment} disabled={paying} className="btn-action rounded-full px-7 py-3.5 text-[15px]">
+                    {paying ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />} {paying ? t('signup.paying') : t('auth.signup.retryPayment')}
+                  </button>
+                ) : isLast ? (
                   <button type="submit" disabled={formState.isSubmitting} className="btn-action rounded-full px-7 py-3.5 text-[15px]">
                     <Lock className="size-4" /> {formState.isSubmitting ? t('signup.paying') : t('signup.pay')}
                   </button>
@@ -197,7 +359,7 @@ function SignupDone({ login }: { login: string }) {
         <div className="rounded-3xl border border-brand-green/10 bg-brand-mist p-5 dark:border-white/10 dark:bg-night-card">
           <Mail className="size-5 text-brand-green" />
           <p className="mt-3 text-sm text-gray-500">{t('signup.done.login')}</p>
-          <p className="mt-1 text-lg font-semibold text-brand-graphite dark:text-white">{login}</p>
+          {login && <p className="mt-1 text-lg font-semibold text-brand-graphite dark:text-white">{login}</p>}
           <p className="mt-2 text-xs text-gray-500">{t('signup.done.credentials')}</p>
         </div>
         <div className="rounded-3xl border border-brand-green/10 bg-brand-mist p-5 dark:border-white/10 dark:bg-night-card">

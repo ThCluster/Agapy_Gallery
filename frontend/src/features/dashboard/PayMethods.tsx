@@ -1,7 +1,8 @@
-import { CreditCard, Smartphone, Wallet } from 'lucide-react'
+import { CheckCircle2, CreditCard, Smartphone, Wallet, XCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { formatXOF } from '@/lib/format'
-import { useArtistSpace } from '@/stores/artistSpace'
+import { usePaymentReturn, useWallet } from '@/api/artistSpace'
+import { toNumber } from '@/lib/api'
+import { formatMoney } from './revenue'
 
 export type PayMethod = 'wallet' | 'momo' | 'card'
 
@@ -11,7 +12,9 @@ export type PayMethod = 'wallet' | 'momo' | 'card'
  */
 export function PayMethods({ value, onChange, amount, allowWallet = true }: { value: PayMethod; onChange: (m: PayMethod) => void; amount: number; allowWallet?: boolean }) {
   const { t, i18n } = useTranslation()
-  const wallet = useArtistSpace((s) => s.wallet)
+  const { data } = useWallet()
+  const wallet = { active: !!data?.is_active, balance: toNumber(data?.balance) }
+  const formatXOF = (v: number, l?: string) => formatMoney(v, data?.currency, l)
   const walletOk = allowWallet && wallet.active && wallet.balance >= amount
 
   const options: { id: PayMethod; icon: typeof Wallet; title: string; hint: string; disabled?: boolean }[] = [
@@ -55,6 +58,24 @@ export function PayMethods({ value, onChange, amount, allowWallet = true }: { va
           </span>
         </button>
       ))}
+    </div>
+  )
+}
+
+/**
+ * Résultat d'un paiement au retour de la page du prestataire (?payment=&status=).
+ * Les données de l'espace artiste sont rechargées par usePaymentReturn.
+ */
+export function PaymentReturnNotice() {
+  const { t } = useTranslation()
+  const ret = usePaymentReturn()
+  if (!ret) return null
+  const ok = ret.status === 'succeeded'
+  const pending = ret.status === 'pending'
+  return (
+    <div role="status" className={`flex items-start gap-3 rounded-2xl border p-4 text-sm ${ok ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : pending ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-rose-200 bg-rose-50 text-rose-900'}`}>
+      {ok ? <CheckCircle2 className="mt-0.5 size-4 shrink-0" /> : <XCircle className="mt-0.5 size-4 shrink-0" />}
+      <p>{t(`dashboard.paymentReturn.${ok ? 'succeeded' : pending ? 'pending' : 'failed'}`)}</p>
     </div>
   )
 }
