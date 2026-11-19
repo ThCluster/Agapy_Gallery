@@ -1,0 +1,67 @@
+{% extends "admin/base_site.html" %}
+{% block breadcrumbs %}
+<div class="breadcrumbs"><a href="{% url 'admin:index' %}">Accueil</a> &rsaquo; Tableau de bord</div>
+{% endblock %}
+{% block content %}
+<div id="content-main">
+  <p><strong>Œuvres en attente de modération :</strong>
+    <a href="{% url 'admin:index' %}catalog/artwork/?status__exact=pending_review">{{ data.pending_moderation }}</a></p>
+
+  {% for label, f in windows %}
+  <div class="module" style="margin-bottom:20px">
+    <table style="width:100%">
+      <caption>{{ label }} (depuis le {{ f.from }})</caption>
+      <thead><tr><th>Objet du paiement</th><th>Nombre</th><th>Montant TTC encaissé</th></tr></thead>
+      <tbody>
+        {% for p in f.payments %}
+        <tr><td>{{ p.label }}</td><td>{{ p.count }}</td>
+          <td>{% for cur, amount in p.totals.items %}{{ amount }} {{ cur }}{% if not forloop.last %} · {% endif %}{% endfor %}</td></tr>
+        {% empty %}
+        <tr><td colspan="3">Aucun paiement.</td></tr>
+        {% endfor %}
+        <tr><th>Revenus AGAPY (HT)</th><td></td>
+          <td>{% for cur, amount in f.agapy_revenue.items %}{{ amount }} {{ cur }}{% if not forloop.last %} · {% endif %}{% empty %}0{% endfor %}</td></tr>
+        <tr><th>AGAPY Provision</th><td></td>
+          <td>{% for cur, amount in f.agapy_provision.items %}{{ amount }} {{ cur }}{% if not forloop.last %} · {% endif %}{% empty %}0{% endfor %}</td></tr>
+        <tr><th>Nouvelles inscriptions</th><td>{{ f.new_signups }}</td><td>dont {{ f.new_activations }} comptes activés</td></tr>
+      </tbody>
+    </table>
+  </div>
+  {% endfor %}
+
+  <form method="get" style="margin:20px 0">
+    <label>Classement : <select name="period">
+      {% for value, label in periods %}<option value="{{ value }}"{% if value == data.period %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select></label>
+    <label>Devise : <select name="currency">
+      {% for c in currencies %}<option value="{{ c }}"{% if c == data.currency %} selected{% endif %}>{{ c }}</option>{% endfor %}
+    </select></label>
+    <input type="submit" value="Afficher">
+    <span class="help">depuis le {{ data.from }}</span>
+  </form>
+
+  <div class="module" style="margin-bottom:20px">
+    <table style="width:100%">
+      <caption>Artistes qui font le plus de chiffre ({{ data.currency }}, part artiste)</caption>
+      <thead><tr><th>Rang</th><th>Artiste</th><th>Revenus</th></tr></thead>
+      <tbody>
+        {% for r in data.rankings.by_revenue %}
+        <tr><td>{{ r.rank }}</td><td><a href="{% url 'admin:accounts_artistprofile_change' r.admin_id %}">{{ r.name }}</a></td><td>{{ r.total }} {{ data.currency }}</td></tr>
+        {% empty %}<tr><td colspan="3">Aucun revenu sur la période.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="module">
+    <table style="width:100%">
+      <caption>Artistes les plus visités</caption>
+      <thead><tr><th>Rang</th><th>Artiste</th><th>Visites</th><th>Payantes</th><th>Gratuites</th></tr></thead>
+      <tbody>
+        {% for r in data.rankings.by_visits %}
+        <tr><td>{{ r.rank }}</td><td><a href="{% url 'admin:accounts_artistprofile_change' r.admin_id %}">{{ r.name }}</a></td><td>{{ r.visits }}</td><td>{{ r.paid }}</td><td>{{ r.free }}</td></tr>
+        {% empty %}<tr><td colspan="5">Aucune visite sur la période.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

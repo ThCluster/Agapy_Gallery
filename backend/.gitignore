@@ -1,0 +1,16 @@
+# Environnement Python
+.venv/
+__pycache__/
+*.py[cod]
+
+# Secrets et configuration locale
+.env
+
+# Fichiers téléversés et fichiers statiques collectés
+media/
+staticfiles/
+
+# Divers
+*.log
+.coverage
+htmlcov/
