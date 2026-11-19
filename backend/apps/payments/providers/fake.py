@@ -4,8 +4,6 @@ Prestataire simulé : moyen de paiement officiel tant qu'aucun prestataire réel
 start() renvoie une page de paiement simulée ; le paiement est confirmé ou refusé en appelant
 POST /api/v1/payments/<reference>/simulate/ (disponible seulement si PAYMENT_SIMULATION_ENABLED).
 """
-from django.conf import settings
-
 from . import BaseProvider
 
 
@@ -14,7 +12,8 @@ class FakeProvider(BaseProvider):
 
     def start(self, payment) -> dict:
         return {
-            "checkout_url": f"{settings.FRONTEND_URL}/paiement/simulation?ref={payment.reference}",
+            # URL relative : le frontend la résout sur sa propre origine (127.0.0.1, autre port, domaine…)
+            "checkout_url": f"/paiement/simulation?ref={payment.reference}",
             "simulate_url": f"/api/v1/payments/{payment.reference}/simulate/",
         }
 

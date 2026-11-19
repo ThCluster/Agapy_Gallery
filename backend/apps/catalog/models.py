@@ -13,6 +13,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 from apps.accounts.models import ArtistProfile
+from apps.core.uploads import SafeImageField
 
 ARTWORK_IMAGE_MAX_BYTES = 10 * 1024 * 1024
 EXCERPT_MAX_BYTES = 20 * 1024 * 1024
@@ -127,7 +128,8 @@ class Artwork(models.Model):
                                     validators=[MinValueValidator(0)])
     width_cm = models.DecimalField("largeur (cm)", max_digits=7, decimal_places=1,
                                    validators=[MinValueValidator(0)])
-    image = models.ImageField("image", upload_to=artwork_image_path)
+    # JPEG / PNG / WebP vérifiés puis ré-encodés (métadonnées EXIF/GPS supprimées) : voir apps.core.uploads
+    image = SafeImageField("image", upload_to=artwork_image_path, max_bytes=ARTWORK_IMAGE_MAX_BYTES)
     excerpt = models.FileField(
         "extrait (30 s max)", upload_to=artwork_excerpt_path, blank=True,
         validators=[FileExtensionValidator(EXCERPT_EXTENSIONS)],
@@ -147,6 +149,7 @@ class Artwork(models.Model):
         help_text="L'artiste certifie être propriétaire de l'œuvre (obligatoire).",
     )
 
+    # Réservé : sans effet pour l'instant (la gratuité se règle au niveau de la galerie, Gallery.is_free)
     is_free = models.BooleanField("visite gratuite", default=False)
     recommended = models.BooleanField("recommandée", default=False, db_index=True)
     team_favorite = models.BooleanField("coup de cœur de l'équipe", default=False, db_index=True)

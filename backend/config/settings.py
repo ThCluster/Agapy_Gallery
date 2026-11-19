@@ -62,6 +62,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.accounts.middleware.AdminLoginThrottleMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -129,13 +130,26 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "apps.core.exceptions.api_exception_handler",
-    "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.ScopedRateThrottle"],
+    # Nombre de proxys de confiance devant Django (0 en local, 1 derrière nginx) : sans ce réglage,
+    # un client pourrait changer d'adresse IP à volonté avec X-Forwarded-For et contourner les limites.
+    "NUM_PROXIES": env.int("NUM_PROXIES", default=0),
+    # Limite générale par adresse IP (anonyme) ou par compte, plus des limites par action (throttle_scope)
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+        "rest_framework.throttling.ScopedRateThrottle",
+    ],
     "DEFAULT_THROTTLE_RATES": {
+        "anon": "120/min",
+        "user": "300/min",
         "auth_login": "10/min",
         "auth_refresh": "30/min",
         "password_otp": "5/hour",
         "password_verify": "10/hour",
         "signup": "10/hour",
+        "password_change": "5/hour",  # changement du mot de passe et des coordonnées de versement
+        "simulate": "30/hour",  # simulateur de paiement
+        "clip_create": "5/hour",  # clips promotionnels
     },
 }
 
@@ -145,6 +159,12 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
+    # Hors développement, le schéma et Swagger sont réservés à l'équipe (session de l'administration)
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny" if DEBUG else "rest_framework.permissions.IsAdminUser"],
+    "SERVE_AUTHENTICATION": [
+        "rest_framework.authentication.SessionAuthentication",
+        "apps.accounts.authentication.AgapyJWTAuthentication",
+    ],
 }
 
 # Jetons JWT : jeton d'accès court (gardé en mémoire par le frontend) et jeton de
@@ -173,15 +193,27 @@ REFRESH_COOKIE = {
     "DOMAIN": env("REFRESH_COOKIE_DOMAIN"),
 }
 
-# Blocage d'un numéro après trop d'échecs de connexion
+# Blocage après trop d'échecs de connexion : LOGIN_MAX_FAILURES par couple (numéro, adresse IP),
+# LOGIN_GLOBAL_MAX_FAILURES par numéro toutes adresses confondues, pendant LOGIN_LOCKOUT.
 LOGIN_MAX_FAILURES = 5
+LOGIN_GLOBAL_MAX_FAILURES = 20
 LOGIN_LOCKOUT = timedelta(minutes=15)
+# Même principe pour la page de connexion de l'administration (par adresse IP et par identifiant)
+ADMIN_LOGIN_MAX_FAILURES = 5
+ADMIN_LOGIN_LOCKOUT = timedelta(minutes=15)
+
+# Chemin de l'administration Django : à changer en production pour la soustraire aux robots
+ADMIN_URL = env("ADMIN_URL", default="admin/").strip("/") + "/"
 
 # Code de réinitialisation du mot de passe envoyé par SMS
 PASSWORD_RESET_CODE_LIFETIME = timedelta(minutes=10)
 PASSWORD_RESET_CODE_MAX_ATTEMPTS = 5
 PASSWORD_RESET_CODE_COOLDOWN = timedelta(seconds=60)
 PASSWORD_RESET_TOKEN_LIFETIME = timedelta(minutes=15)
+# Plafonds par numéro : codes envoyés, et échecs de vérification cumulés sur la journée
+PASSWORD_RESET_CODES_PER_HOUR = 3
+PASSWORD_RESET_CODES_PER_DAY = 10
+PASSWORD_RESET_VERIFY_MAX_FAILURES_PER_DAY = 10
 
 # ---------------------------------------------------------------------------
 # CORS (en développement, le plus simple reste le proxy Vite sur /api)

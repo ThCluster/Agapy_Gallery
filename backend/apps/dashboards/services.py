@@ -290,7 +290,8 @@ def is_inactive(artist, now=None) -> bool:
 
 def statement_message(artist, now=None) -> str:
     zone = artist_currency(artist)
-    available = {b["currency"]: b["available"] for b in balances(artist)}
+    # Argent fictif du paiement simulé exclu : le bilan n'annonce que des sommes réellement versables
+    available = {b["currency"]: b["available"] for b in balances(artist, exclude_simulated=True)}
     parts = [format_amount(available.get(zone, Decimal("0")), zone)]
     parts += [format_amount(v, c) for c, v in sorted(available.items()) if c != zone and v > 0]
     message = f"Message AGAPY-GALLERY : vous avez une disponibilité financière de {' et '.join(parts)}."

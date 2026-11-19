@@ -113,6 +113,18 @@ DONATION_LIMITS = {
     Currency.EUR: (Decimal("1"), Decimal("10000")),
     Currency.USD: (Decimal("1"), Decimal("10000")),
 }
+# Tant que le paiement est simulé (settings.PAYMENT_SIMULATION_ENABLED), les dons sont plafonnés plus bas :
+# l'argent est fictif, inutile de laisser afficher des montants extravagants.
+SIMULATED_DONATION_MAX = {
+    Currency.XOF: Decimal("50000"),
+    Currency.EUR: Decimal("100"),
+    Currency.USD: Decimal("100"),
+}
+# Prestataire du paiement simulé (apps.payments.providers.fake.FakeProvider)
+SIMULATED_PROVIDER = "fake"
+# Un paiement simulé doit être confirmé ou refusé dans ce délai après sa création
+SIMULATION_WINDOW = timedelta(hours=2)
+PAYOUTS_DISABLED_MESSAGE = "Les retraits seront ouverts quand le paiement en ligne réel sera activé."
 
 # Une visite gratuite n'est comptée qu'une fois par visiteur (adresse IP) et par artiste sur cette durée
 FREE_VISIT_DEDUP_SECONDS = 6 * 3600
@@ -211,6 +223,8 @@ def create_donation_payment(artist, amount: Decimal, currency: str, region: str,
                             message: str = "") -> Payment:
     _check_public_method(method)
     low, high = DONATION_LIMITS[currency]
+    if settings.PAYMENT_SIMULATION_ENABLED:
+        high = min(high, SIMULATED_DONATION_MAX[currency])
     if amount != round_money(amount, currency) or not (low <= amount <= high):
         raise PaymentError("invalid_amount", f"Le don doit être compris entre {low} et {high} {currency}.")
     return create_payment(purpose=Purpose.DONATION, method=method, quote=donation_quote(amount, currency),
@@ -250,9 +264,14 @@ def _sum(qs) -> Decimal:
     return qs.aggregate(t=Sum("amount"))["t"] or Decimal("0")
 
 
-def balances(artist) -> list[dict]:
-    """Par devise : disponible (crédits − versements − demandes en cours), total gagné, provision retenue."""
+def balances(artist, exclude_simulated: bool = False) -> list[dict]:
+    """
+    Par devise : disponible (crédits − versements − demandes en cours), total gagné, provision retenue.
+    exclude_simulated : ignore les crédits issus du paiement simulé (argent fictif).
+    """
     entries = LedgerEntry.objects.filter(artist=artist)
+    if exclude_simulated:
+        entries = entries.exclude(payment__provider=SIMULATED_PROVIDER)
     currencies = set(entries.values_list("currency", flat=True)) | set(
         artist.payout_requests.values_list("currency", flat=True))
     result = []
@@ -294,6 +313,9 @@ def artist_transactions(artist):
 def request_payout(artist, amount: Decimal, currency: str, channel: str) -> PayoutRequest:
     from apps.accounts.models import ArtistProfile
 
+    if settings.PAYMENT_SIMULATION_ENABLED:
+        # Paiement simulé : les soldes sont fictifs, aucun retrait réel ne doit en sortir
+        raise PaymentError("payouts_disabled", PAYOUTS_DISABLED_MESSAGE)
     artist = ArtistProfile.objects.select_for_update().get(pk=artist.pk)  # une demande à la fois
     if currency not in DONATION_LIMITS or amount <= 0 or amount != round_money(amount, currency):
         raise PaymentError("invalid_amount", "Montant invalide.")
@@ -313,10 +335,22 @@ def request_payout(artist, amount: Decimal, currency: str, channel: str) -> Payo
 
 @transaction.atomic
 def mark_payout_paid(payout: PayoutRequest, by=None) -> bool:
-    """Le versement a été effectué : débit au grand livre. Sans effet s'il n'est plus en attente."""
+    """
+    Le versement a été effectué : débit au grand livre. Sans effet s'il n'est plus en attente.
+
+    Refusé (PaymentError) tant que le paiement est simulé, ou si la demande n'est pas couverte
+    par des crédits issus de paiements réels.
+    """
+    if settings.PAYMENT_SIMULATION_ENABLED:
+        raise PaymentError("payouts_disabled", PAYOUTS_DISABLED_MESSAGE)
     payout = PayoutRequest.objects.select_for_update().get(pk=payout.pk)
     if payout.status != PayoutStatus.PENDING:
         return False
+    real = next((b["available"] for b in balances(payout.artist, exclude_simulated=True)
+                 if b["currency"] == payout.currency), Decimal("0"))
+    if real < 0:  # « disponible » réel, cette demande déduite
+        raise PaymentError("simulated_funds",
+                           "Cette demande n'est pas couverte par des paiements réels (paiements simulés).")
     payout.status = PayoutStatus.PAID
     payout.processed_at = timezone.now()
     payout.processed_by = by

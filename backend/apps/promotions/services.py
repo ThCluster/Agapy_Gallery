@@ -33,14 +33,28 @@ def order_clip(*, data: dict, method: str, user=None):
 
 
 def mark_clip_paid(clip: Clip, paid_at=None) -> None:
-    """Paiement confirmé : le clip entre dans la file d'attente (appelé dans la transaction du paiement)."""
+    """
+    Paiement confirmé : le clip attend la validation de l'équipe (appelé dans la transaction du paiement).
+    Il n'entre dans la file de diffusion qu'une fois approuvé (approve_clip).
+    """
     clip = Clip.objects.select_for_update().get(pk=clip.pk)
     if clip.status != ClipStatus.AWAITING_PAYMENT:
         return
-    clip.status = ClipStatus.QUEUED
+    clip.status = ClipStatus.PENDING_REVIEW
     clip.paid_at = paid_at or timezone.now()
     clip.save(update_fields=["status", "paid_at"])
+
+
+@transaction.atomic
+def approve_clip(clip: Clip) -> bool:
+    """Validation par l'équipe : le clip entre dans la file d'attente, diffusé dès qu'une place se libère."""
+    clip = Clip.objects.select_for_update().get(pk=clip.pk)
+    if clip.status != ClipStatus.PENDING_REVIEW:
+        return False
+    clip.status = ClipStatus.QUEUED
+    clip.save(update_fields=["status"])
     refresh_queue()
+    return True
 
 
 @transaction.atomic

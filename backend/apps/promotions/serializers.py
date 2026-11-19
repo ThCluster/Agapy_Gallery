@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 
 from apps.core.pricing import CLIP_MAX_SECONDS
+from apps.core.uploads import ImageValidator, MediaValidator
 
 from . import services
 from .models import AdCampaign, Clip, LiveStream
@@ -24,13 +25,14 @@ class ClipCreateSerializer(serializers.ModelSerializer):
         ext = video.name.rsplit(".", 1)[-1].lower() if "." in video.name else ""
         if ext not in CLIP_VIDEO_EXTENSIONS:
             raise serializers.ValidationError("La vidéo doit être au format MP4 ou WebM.", code="video_format")
-        if video.size > CLIP_VIDEO_MAX_BYTES:
-            raise serializers.ValidationError("La vidéo ne doit pas dépasser 50 Mo.", code="file_too_large")
+        # Poids et octets de signature (MP4 : « ftyp » ; WebM : 1A 45 DF A3) : file_too_large, file_type
+        MediaValidator(CLIP_VIDEO_EXTENSIONS, CLIP_VIDEO_MAX_BYTES, label="La vidéo")(video)
         return video
 
     def validate_poster(self, poster):
-        if poster and poster.size > CLIP_POSTER_MAX_BYTES:
-            raise serializers.ValidationError("L'affiche ne doit pas dépasser 5 Mo.", code="file_too_large")
+        # JPEG / PNG / WebP réels : file_type, file_too_large, image_too_large (ré-encodée à l'enregistrement)
+        if poster:
+            ImageValidator(CLIP_POSTER_MAX_BYTES)(poster)
         return poster
 
     def validate_duration_seconds(self, value):

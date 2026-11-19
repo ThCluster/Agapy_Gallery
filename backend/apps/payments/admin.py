@@ -61,8 +61,19 @@ class PayoutRequestAdmin(admin.ModelAdmin):
 
     @admin.action(description="Marquer comme versé")
     def mark_paid(self, request, queryset):
-        done = sum(services.mark_payout_paid(p, by=request.user) for p in queryset.filter(status=PayoutStatus.PENDING))
-        self.message_user(request, f"{done} versement(s) enregistré(s).", messages.SUCCESS)
+        """Refusé tant que le paiement est simulé, ou si la demande repose sur des paiements simulés."""
+        done, refused = 0, []
+        for payout in queryset.filter(status=PayoutStatus.PENDING):
+            try:
+                done += services.mark_payout_paid(payout, by=request.user)
+            except services.PaymentError as exc:
+                refused.append(f"{payout} : {exc.message}")
+        if done:
+            self.message_user(request, f"{done} versement(s) enregistré(s).", messages.SUCCESS)
+        for line in refused:
+            self.message_user(request, f"Refusé — {line}", messages.ERROR)
+        if not done and not refused:
+            self.message_user(request, "Aucune demande en attente sélectionnée.", messages.WARNING)
 
     @admin.action(description="Refuser la demande")
     def reject(self, request, queryset):

@@ -13,6 +13,7 @@ from django.utils.text import slugify
 
 from apps.core.phone import format_international
 from apps.core.regions import region_of
+from apps.core.uploads import SafeImageField
 
 from .managers import UserManager
 from .validators import validate_gps
@@ -102,7 +103,8 @@ class ArtistProfile(models.Model):
     city = models.CharField("ville", max_length=120)
     village = models.CharField("village", max_length=120, blank=True)
     gps = models.CharField("coordonnées GPS", max_length=60, blank=True, validators=[validate_gps])
-    photo = models.ImageField("photo", upload_to=artist_photo_path, blank=True)
+    # JPEG / PNG / WebP vérifiés puis ré-encodés (métadonnées EXIF/GPS supprimées) : voir apps.core.uploads
+    photo = SafeImageField("photo", upload_to=artist_photo_path, blank=True)
     bio = models.TextField("biographie", blank=True)
     website = models.URLField("site web", blank=True)
     facebook = models.URLField(blank=True)

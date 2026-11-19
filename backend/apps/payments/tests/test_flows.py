@@ -1,7 +1,11 @@
 from decimal import Decimal
 from unittest import mock
 
+from datetime import timedelta
+
 from django.test import override_settings
+from django.utils import timezone
+from rest_framework.throttling import SimpleRateThrottle
 
 from apps.accounts.models import ArtistStatus
 from apps.accounts.tests.helpers import BaseTestCase, make_artist
@@ -108,7 +112,67 @@ class PaymentFlowTests(BaseTestCase):
         self.simulate(r.data["payment"]["reference"])
         self.assertEqual(LedgerEntry.objects.get(account=LedgerAccount.ARTIST).amount, Decimal("850"))
 
+    def test_simulated_donation_capped(self):
+        data = {"artist": self.artist.slug, "region": "africa", "method": "momo"}
+        r = self.client.post(f"{API}/donations/", {**data, "amount": "5000000"}, format="json")
+        self.assertEqual(r.data["codes"]["detail"], "invalid_amount")
+        r = self.client.post(f"{API}/donations/", {**data, "amount": "50000"}, format="json")
+        self.assertEqual(r.status_code, 201)
+        r = self.client.post(f"{API}/donations/", {**data, "region": "europe", "amount": "101"}, format="json")
+        self.assertEqual(r.data["codes"]["detail"], "invalid_amount")
+
+    # --- simulateur -------------------------------------------------------------------
+    def _visit(self):
+        r = self.client.post(f"{API}/visits/", {"artist": self.artist.slug, "method": "momo", "region": "africa"},
+                             format="json")
+        self.assertEqual(r.data["action"]["checkout_url"], f"/paiement/simulation?ref={r.data['payment']['reference']}")
+        return Payment.objects.get(reference=r.data["payment"]["reference"])
+
+    def test_simulate_rules(self):
+        # Paiement d'un autre prestataire : introuvable pour le simulateur
+        other = services.create_visit_payment(self.artist, "momo", "africa", {})
+        Payment.objects.filter(pk=other.pk).update(provider="cinetpay")
+        self.assertEqual(self.simulate(other.reference).status_code, 404)
+        # Déjà payé : 409
+        p = self._visit()
+        self.assertEqual(self.simulate(p.reference).status_code, 200)
+        r = self.simulate(p.reference)
+        self.assertEqual((r.status_code, r.data["codes"]["detail"]), (409, "payment_closed"))
+        # Trop ancien : 409 et paiement annulé
+        old = self._visit()
+        Payment.objects.filter(pk=old.pk).update(created_at=timezone.now() - timedelta(hours=3))
+        r = self.simulate(old.reference)
+        self.assertEqual((r.status_code, r.data["codes"]["detail"]), (409, "payment_expired"))
+        old.refresh_from_db()
+        self.assertEqual(old.status, "cancelled")
+
+    def test_simulate_throttled(self):
+        with mock.patch.dict(SimpleRateThrottle.THROTTLE_RATES, {"simulate": "1/hour"}):
+            self.simulate(self._visit().reference)
+            self.assertEqual(self.simulate(self._visit().reference).status_code, 429)
+
+    def test_payouts_disabled_during_simulation(self):
+        """Argent fictif : un don simulé confirmé ne peut pas être retiré."""
+        p = self._visit()
+        self.simulate(p.reference)
+        self.auth(self.login().data["access"])
+        self.assertEqual(self.client.get(f"{API}/me/balance/").data[0]["available"], "188.00")  # affiché quand même
+        r = self.client.post(f"{API}/me/payouts/", {"amount": "100", "currency": "XOF", "channel": "momo"})
+        self.assertEqual((r.status_code, r.data["codes"]["detail"]), (409, "payouts_disabled"))
+        payout = PayoutRequest.objects.create(artist=self.artist, amount=Decimal("100"), currency="XOF",
+                                              channel="momo", destination="x")
+        with self.assertRaises(services.PaymentError) as ctx:
+            services.mark_payout_paid(payout)
+        self.assertEqual(ctx.exception.code, "payouts_disabled")
+        # Simulation coupée ensuite : les crédits simulés ne sont toujours pas versables
+        with override_settings(PAYMENT_SIMULATION_ENABLED=False):
+            with self.assertRaises(services.PaymentError) as ctx:
+                services.mark_payout_paid(payout)
+        self.assertEqual(ctx.exception.code, "simulated_funds")
+        self.assertEqual(PayoutRequest.objects.get().status, PayoutStatus.PENDING)
+
     # --- espace artiste -------------------------------------------------------------
+    @override_settings(PAYMENT_SIMULATION_ENABLED=False)
     def test_balance_and_payouts(self):
         p = services.create_donation_payment(self.artist, Decimal("2000"), "XOF", "africa", "momo", {})
         services.confirm_payment(p)

@@ -1,3 +1,6 @@
+import hashlib
+
+from django.core.cache import cache
 from django.db.models import F, Prefetch
 from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
@@ -11,6 +14,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
+from apps.core.net import client_ip
 from apps.payments.providers import ProviderError
 
 from . import services
@@ -27,6 +31,18 @@ from .serializers import (
     SubmitResponseSerializer,
     SubmitSerializer,
 )
+
+
+# Une vue d'œuvre n'est comptée qu'une fois par visiteur (adresse IP) et par œuvre sur cette durée
+ARTWORK_VIEW_DEDUP_SECONDS = 6 * 3600
+
+# Tris proposés sur la liste des artistes (?ordering=)
+ARTIST_ORDERINGS = {
+    "-visits": ("-visit_total", "gallery__address_number"),
+    "visits": ("visit_total", "gallery__address_number"),
+    "-views": ("-view_total", "gallery__address_number"),
+    "views": ("view_total", "gallery__address_number"),
+}
 
 
 class CatalogPagination(PageNumberPagination):
@@ -86,6 +102,7 @@ class MyArtworkDetailView(ArtistSpaceMixin, generics.RetrieveUpdateDestroyAPIVie
 
     def perform_update(self, serializer):
         changed = {k for k, v in serializer.validated_data.items() if getattr(serializer.instance, k) != v}
+        services.check_artwork_update(serializer.instance, changed)
         artwork = serializer.save()
         services.apply_artwork_changes(artwork, changed)
 
@@ -150,7 +167,8 @@ def _published_prefetch():
 
 
 def _artists_queryset():
-    return services.public_artists().select_related("user").prefetch_related(_published_prefetch())
+    return services.with_audience(
+        services.public_artists().select_related("user").prefetch_related(_published_prefetch()))
 
 
 @extend_schema(
@@ -160,6 +178,9 @@ def _artists_queryset():
         OpenApiParameter("discipline", OpenApiTypes.STR, enum=Discipline.values),
         OpenApiParameter("country", OpenApiTypes.STR, description="Code pays ISO, ex. CI"),
         OpenApiParameter("free", OpenApiTypes.BOOL, description="Galeries en visite gratuite uniquement"),
+        OpenApiParameter("ordering", OpenApiTypes.STR, enum=list(ARTIST_ORDERINGS),
+                         description="-visits : les plus visités (visites réelles) ; -views : vues de leurs œuvres. "
+                                     "Par défaut : ordre des adresses sur l'avenue."),
     ],
 )
 class PublicArtistListView(PublicMixin, generics.ListAPIView):
@@ -177,7 +198,8 @@ class PublicArtistListView(PublicMixin, generics.ListAPIView):
             qs = qs.filter(country__iexact=p["country"])
         if p.get("free") in ("1", "true", "True"):
             qs = qs.filter(services.free_gallery_q())
-        return qs.order_by("gallery__address_number", "-created_at")
+        ordering = ARTIST_ORDERINGS.get(p.get("ordering", ""), ("gallery__address_number",))
+        return qs.order_by(*ordering, "-created_at")
 
 
 @extend_schema(tags=["Catalogue"])
@@ -199,6 +221,8 @@ class PublicArtistDetailView(PublicMixin, generics.RetrieveAPIView):
         OpenApiParameter("discipline", OpenApiTypes.STR, enum=Discipline.values),
         OpenApiParameter("recommended", OpenApiTypes.BOOL),
         OpenApiParameter("team_favorite", OpenApiTypes.BOOL),
+        OpenApiParameter("free_gallery", OpenApiTypes.BOOL,
+                         description="Œuvres dont la galerie est en visite gratuite aujourd'hui"),
     ],
 )
 class PublicArtworkListView(PublicMixin, generics.ListAPIView):
@@ -219,12 +243,14 @@ class PublicArtworkListView(PublicMixin, generics.ListAPIView):
             qs = qs.filter(recommended=True)
         if p.get("team_favorite") in ("1", "true", "True"):
             qs = qs.filter(team_favorite=True)
+        if p.get("free_gallery") in ("1", "true", "True"):
+            qs = qs.filter(services.free_gallery_q("artist__"))
         return qs.order_by("-published_at")
 
 
 @extend_schema(tags=["Catalogue"])
 class PublicArtworkDetailView(PublicMixin, generics.RetrieveAPIView):
-    """Détail d'une œuvre publiée ; chaque consultation incrémente le compteur de vues."""
+    """Détail d'une œuvre publiée ; la vue est comptée une fois par visiteur et par œuvre toutes les 6 heures."""
 
     serializer_class = PublicArtworkSerializer
     lookup_field = "slug"
@@ -234,8 +260,10 @@ class PublicArtworkDetailView(PublicMixin, generics.RetrieveAPIView):
 
     def retrieve(self, request, *args, **kwargs):
         artwork = self.get_object()
-        Artwork.objects.filter(pk=artwork.pk).update(view_count=F("view_count") + 1)
-        artwork.refresh_from_db(fields=["view_count"])
+        digest = hashlib.sha256(f"{artwork.pk}:{client_ip(request)}".encode()).hexdigest()
+        if cache.add(f"artwork-view:{digest}", 1, timeout=ARTWORK_VIEW_DEDUP_SECONDS):
+            Artwork.objects.filter(pk=artwork.pk).update(view_count=F("view_count") + 1)
+            artwork.refresh_from_db(fields=["view_count"])
         return Response(self.get_serializer(artwork).data)
 
 

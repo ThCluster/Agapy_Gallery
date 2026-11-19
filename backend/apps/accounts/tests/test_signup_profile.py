@@ -5,7 +5,7 @@ from apps.accounts.models import ArtistProfile, ArtistStatus, User
 from apps.accounts.validators import validate_iban
 from apps.notifications import sms
 
-from .helpers import BaseTestCase, image_file, make_artist
+from .helpers import PASSWORD, BaseTestCase, image_file, make_artist
 
 SIGNUP = "/api/v1/accounts/signup/"
 VALID_IBAN = "FR7630006000011234567890189"
@@ -42,7 +42,10 @@ class SignupTests(BaseTestCase):
             services.activate_account(profile)
         self.assertEqual(sms.outbox[-1]["to"], "+2250501020304")
         password = sms.outbox[-1]["message"].split("Mot de passe : ")[1].split()[0]
+        # L'e-mail prévient sans jamais contenir le mot de passe (le numéro est l'identité)
         self.assertEqual(len(mail.outbox), 1)
+        self.assertNotIn(password, mail.outbox[0].body)
+        self.assertIn("envoyés par SMS au +225…04", mail.outbox[0].body)
         self.assertEqual(self.login(phone="0501020304", password=password).status_code, 200)
 
     def test_org_signup(self):
@@ -82,6 +85,17 @@ class SignupTests(BaseTestCase):
         self.assertEqual(User.objects.filter(phone="+2250501020304").count(), 1)
         self.assertEqual(ArtistProfile.objects.get().artist_name, "Fatou D.")
 
+    def test_restarted_signup_cannot_steal_credentials(self):
+        """Quelqu'un qui recommence l'inscription avec SON e-mail ne reçoit pas le mot de passe."""
+        self.client.post(SIGNUP, signup_data(), format="multipart")
+        self.client.post(SIGNUP, signup_data(email="pirate@exemple.com", photo=image_file()), format="multipart")
+        with self.captureOnCommitCallbacks(execute=True):
+            services.activate_account(ArtistProfile.objects.get())
+        password = sms.outbox[-1]["message"].split("Mot de passe : ")[1].split()[0]
+        self.assertEqual(sms.outbox[-1]["to"], "+2250501020304")
+        self.assertEqual(mail.outbox[0].to, ["pirate@exemple.com"])
+        self.assertNotIn(password, mail.outbox[0].body)
+
     def test_photo_must_be_an_image(self):
         from django.core.files.uploadedfile import SimpleUploadedFile
         bad = SimpleUploadedFile("x.png", b"pas une image", content_type="image/png")
@@ -113,13 +127,31 @@ class ProfileTests(BaseTestCase):
         self.assertEqual(r.status_code, 400)
 
     def test_update_payout(self):
-        r = self.client.patch("/api/v1/accounts/me/payout/", {"payout_iban": True, "account_holder": "Awa Koné",
-                                                              "iban": "fr76 3000 6000 0112 3456 7890 189"}, format="json")
+        with self.captureOnCommitCallbacks(execute=True):
+            r = self.client.patch("/api/v1/accounts/me/payout/", {
+                "current_password": PASSWORD, "payout_iban": True, "account_holder": "Awa Koné",
+                "iban": "fr76 3000 6000 0112 3456 7890 189"}, format="json")
         self.assertEqual(r.status_code, 200, r.data)
         self.assertEqual(r.data["artist"]["iban"], VALID_IBAN)
+        # Alerte SMS au titulaire du numéro
+        self.assertEqual(sms.outbox[-1]["to"], "+2250700000000")
+        self.assertIn("coordonnées de versement ont été modifiées", sms.outbox[-1]["message"])
+
+    def test_payout_requires_current_password(self):
+        url = "/api/v1/accounts/me/payout/"
+        r = self.client.patch(url, {"momo_number": "0500000000"}, format="json")
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.data["codes"]["current_password"], ["required"])
+        r = self.client.patch(url, {"current_password": "Mauvais123", "momo_number": "0500000000"}, format="json")
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.data["codes"]["current_password"], ["password_incorrect"])
+        self.user.artist.refresh_from_db()
+        self.assertEqual(self.user.artist.momo_number, "+2250700000000")
+        self.assertEqual(sms.outbox, [])
 
     def test_payout_needs_one_method(self):
-        r = self.client.patch("/api/v1/accounts/me/payout/", {"payout_momo": False}, format="json")
+        r = self.client.patch("/api/v1/accounts/me/payout/", {"current_password": PASSWORD, "payout_momo": False},
+                              format="json")
         self.assertEqual(r.status_code, 400)
         self.assertEqual(r.data["codes"]["payout_momo"], ["payout_required"])
 
@@ -157,7 +189,8 @@ class SpecAdjustmentTests(BaseTestCase):
                                                        "country": "sn"}, format="json")
         self.assertEqual(r.status_code, 200, r.data)
         self.assertEqual(r.data["artist"]["last_name"], "Koné-Traoré")
-        self.assertEqual(r.data["artist"]["country"], "SN")
+        # Le pays (zone tarifaire, devise du Compte d'Avoir) n'est pas modifiable par l'artiste
+        self.assertEqual(r.data["artist"]["country"], "CI")
         # Le numéro de connexion ne change pas par cette voie
         self.client.patch("/api/v1/accounts/me/", {"phone": "+2250500000000"}, format="json")
         self.assertEqual(self.client.get("/api/v1/accounts/me/").data["phone"], "+2250700000000")

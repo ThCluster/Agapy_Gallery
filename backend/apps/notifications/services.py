@@ -8,7 +8,7 @@ import logging
 
 from django.core.mail import send_mail
 
-from .sms import get_backend
+from .sms import get_backend, mask_phone
 
 logger = logging.getLogger("agapy.notifications")
 
@@ -18,7 +18,7 @@ def send_sms(to: str, message: str) -> bool:
         get_backend().send(to, message)
         return True
     except Exception:
-        logger.exception("Échec de l'envoi du SMS à %s", to)
+        logger.exception("Échec de l'envoi du SMS à %s", mask_phone(to))
         return False
 
 

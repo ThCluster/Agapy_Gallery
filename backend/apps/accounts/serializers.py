@@ -12,6 +12,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.core.phone import format_international, normalize_phone, phone_region
+from apps.core.uploads import ImageValidator
 
 from .models import ArtistProfile, ArtistStatus, Civility, MomoOperator, User
 from .validators import normalize_iban, validate_gps, validate_iban
@@ -144,7 +145,8 @@ class SignupSerializer(serializers.Serializer):
     city = serializers.CharField(max_length=120)
     village = serializers.CharField(max_length=120, required=False, allow_blank=True)
     gps = serializers.CharField(max_length=60, required=False, allow_blank=True, validators=[validate_gps])
-    photo = serializers.ImageField()
+    # Format réel contrôlé (JPEG/PNG/WebP) ; la taille garde son code « photo_size » (validate_photo)
+    photo = serializers.ImageField(validators=[ImageValidator()])
     website = serializers.URLField(required=False, allow_blank=True)
     facebook = serializers.URLField(required=False, allow_blank=True)
     instagram = serializers.URLField(required=False, allow_blank=True)
@@ -265,6 +267,7 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
     """
     Cahier des charges p. 10 et 17 : toutes les informations sont modifiables par l'artiste,
     sauf le numéro de téléphone (identifiant de connexion) et la civilité.
+    Le pays non plus : il fixe la zone tarifaire et la devise du Compte d'Avoir (changement par l'équipe).
     """
 
     email = serializers.EmailField(source="user.email", required=False)
@@ -276,10 +279,8 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
             "org_name", "founded_date", "founded_place",
             "country", "city", "village", "gps", "photo", "bio", "website", "facebook", "instagram",
         ]
+        read_only_fields = ["country"]
         extra_kwargs = {"photo": {"required": False}}
-
-    def validate_country(self, value):
-        return value.upper()
 
     def _not_future(self, value):
         if value and value > timezone.localdate():
@@ -300,9 +301,9 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         # Les champs obligatoires à l'inscription ne peuvent pas être vidés
         if self.instance.is_org:
-            required = ["org_name", "founded_date", "founded_place", "city", "country"]
+            required = ["org_name", "founded_date", "founded_place", "city"]
         else:
-            required = ["last_name", "first_names", "birth_date", "birth_place", "artist_name", "city", "country"]
+            required = ["last_name", "first_names", "birth_date", "birth_place", "artist_name", "city"]
         errors = {
             f: [serializers.ErrorDetail("Ce champ est obligatoire.", code="required")]
             for f in required
@@ -322,13 +323,28 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
 
 
 class PayoutSerializer(serializers.ModelSerializer):
+    PAYOUT_FIELDS = ["payout_momo", "momo_operator", "momo_number", "payout_iban", "iban", "account_holder", "bank_name"]
+
+    # Obligatoire même en PATCH partiel (vérifié dans validate) : un jeton d'accès volé ne suffit pas
+    current_password = serializers.CharField(max_length=128, trim_whitespace=False, write_only=True, required=False)
+
     class Meta:
         model = ArtistProfile
-        fields = ["payout_momo", "momo_operator", "momo_number", "payout_iban", "iban", "account_holder", "bank_name"]
+        fields = ["current_password", "payout_momo", "momo_operator", "momo_number", "payout_iban", "iban",
+                  "account_holder", "bank_name"]
 
     def validate(self, attrs):
         p = self.instance
-        merged = {f: attrs.get(f, getattr(p, f)) for f in self.Meta.fields}
+        current = attrs.pop("current_password", None)
+        if not current:
+            raise serializers.ValidationError(
+                {"current_password": [serializers.ErrorDetail("Ce champ est obligatoire.", code="required")]}
+            )
+        if not p.user.check_password(current):
+            raise serializers.ValidationError(
+                {"current_password": [serializers.ErrorDetail("Mot de passe actuel incorrect.", code="password_incorrect")]}
+            )
+        merged = {f: attrs.get(f, getattr(p, f)) for f in self.PAYOUT_FIELDS}
         errors = {}
         if not (merged["payout_momo"] or merged["payout_iban"]):
             errors["payout_momo"] = [serializers.ErrorDetail("Choisissez au moins un moyen de versement.", code="payout_required")]
