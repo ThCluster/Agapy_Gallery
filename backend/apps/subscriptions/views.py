@@ -80,6 +80,10 @@ class RenewView(APIView):
 class WalletView(APIView):
     """Compte d'Avoir : solde, état et historique paginé (?page=)."""
 
+    def get_wallet(self, request):
+        """Compte d'Avoir du compte connecté (redéfini par l'espace visiteur)."""
+        return services.ensure_wallet(_artist_of(request.user))
+
     def _render(self, request, wallet):
         paginator = HistoryPagination()
         page = paginator.paginate_queryset(wallet.entries.select_related("payment"), request, view=self)
@@ -94,24 +98,28 @@ class WalletView(APIView):
 
     @extend_schema(responses={200: WalletPage}, tags=["Compte d'Avoir"])
     def get(self, request):
-        return self._render(request, services.ensure_wallet(_artist_of(request.user)))
+        return self._render(request, self.get_wallet(request))
 
     @extend_schema(request=WalletUpdateSerializer, responses={200: WalletPage}, tags=["Compte d'Avoir"])
     def patch(self, request):
-        artist = _artist_of(request.user)
+        wallet = self.get_wallet(request)
         s = WalletUpdateSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        return self._render(request, services.set_wallet_active(artist, s.validated_data["is_active"]))
+        return self._render(request, services.set_active(wallet, s.validated_data["is_active"]))
 
 
 class WalletTopupView(APIView):
     """Recharge du Compte d'Avoir par carte ou mobile money (montant libre, sans TVA)."""
 
+    def get_wallet(self, request):
+        """Compte d'Avoir du compte connecté (redéfini par l'espace visiteur)."""
+        return services.ensure_wallet(_artist_of(request.user))
+
     @extend_schema(request=TopupSerializer, responses={201: PaymentStartSerializer}, tags=["Compte d'Avoir"])
     def post(self, request):
-        artist = _artist_of(request.user)
+        wallet = self.get_wallet(request)
         s = TopupSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        payment, action = _run(services.request_topup, artist, request.user,
+        payment, action = _run(services.request_wallet_topup, wallet, request.user,
                                s.validated_data["amount"], s.validated_data["method"])
         return _payment_response(payment, action)

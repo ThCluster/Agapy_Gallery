@@ -1,0 +1,6 @@
+# Scripts et configuration de déploiement : toujours en fins de ligne Unix (exécutés sous Linux / Docker)
+*.sh text eol=lf
+deploy/Dockerfile text eol=lf
+deploy/crontab.example text eol=lf
+deploy/nginx.conf text eol=lf
+deploy/agapy_proxy_params text eol=lf

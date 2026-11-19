@@ -4,6 +4,7 @@ from datetime import timedelta
 
 from django.test import override_settings
 from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 
 from apps.accounts.models import ArtistStatus
 from apps.accounts.tests.helpers import BaseTestCase, image_file, make_artist
@@ -158,6 +159,10 @@ class CatalogTests(BaseTestCase):
 
     def test_search(self):
         a = self.create()
+        # Seule une œuvre soumise (en attente de validation) peut être validée
+        with self.assertRaises(ValidationError):
+            services.approve_artwork(Artwork.objects.get(slug=a["id"]))
+        self.client.post(f"{URL}me/artworks/{a['id']}/submit/", {}, format="json")
         services.approve_artwork(Artwork.objects.get(slug=a["id"]))
         self.client.force_authenticate(None)
         r = self.client.get(f"{URL}search/", {"artist": "awa"})

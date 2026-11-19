@@ -87,10 +87,12 @@ class EntryInline(ReadOnlyInline):
 class WalletAdmin(admin.ModelAdmin):
     """Lecture seule : le solde ne change que par des mouvements (recharges, paiements)."""
 
-    list_display = ["artist", "is_active", "balance", "currency", "updated_at"]
-    list_filter = ["is_active", "currency"]
-    search_fields = ["artist__artist_name", "artist__org_name", "artist__last_name", "artist__user__phone"]
-    readonly_fields = ["artist", "is_active", "balance", "currency", "created_at", "updated_at"]
+    list_display = ["owner", "owner_kind", "is_active", "balance", "currency", "updated_at"]
+    list_filter = ["is_active", "currency", ("user", admin.EmptyFieldListFilter)]
+    search_fields = ["artist__artist_name", "artist__org_name", "artist__last_name", "artist__user__phone",
+                     "user__phone", "user__visitor__display_name"]
+    readonly_fields = ["artist", "user", "is_active", "balance", "currency", "created_at", "updated_at"]
+    list_select_related = ["artist", "user__visitor"]
     inlines = [EntryInline]
 
     def has_add_permission(self, request):
@@ -102,14 +104,22 @@ class WalletAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+    @admin.display(description="titulaire")
+    def owner(self, obj):
+        return obj.owner_label
+
+    @admin.display(description="type")
+    def owner_kind(self, obj):
+        return "Artiste" if obj.artist_id else "Visiteur"
+
 
 @admin.register(WalletEntry)
 class WalletEntryAdmin(admin.ModelAdmin):
     list_display = ["created_at", "wallet", "label", "amount", "balance_after", "payment"]
     list_filter = ["wallet__currency"]
-    search_fields = ["label", "payment__reference", "wallet__artist__user__phone"]
+    search_fields = ["label", "payment__reference", "wallet__artist__user__phone", "wallet__user__phone"]
     readonly_fields = ["wallet", "amount", "balance_after", "label", "payment", "created_at"]
-    list_select_related = ["wallet__artist", "payment"]
+    list_select_related = ["wallet__artist", "wallet__user__visitor", "payment"]
 
     def has_add_permission(self, request):
         return False

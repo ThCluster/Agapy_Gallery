@@ -55,8 +55,14 @@ backend/
     ├── promotions/    ← module 5 : clips 24 h, espaces publicitaires, TV en ligne
     ├── site_content/  ← module 6 : contact, newsletter, partenaires, pages, compteur, messages aux artistes
     ├── dashboards/    ← module 7 : tableaux de bord artiste et équipe, bilan trimestriel
-    └── forum/         ← module 8 : forum de discussion (+ commande seed_demo)
+    ├── forum/         ← module 8 : forum de discussion (+ commande seed_demo)
+    └── visitors/      ← module 9 : comptes visiteurs (code SMS) et leur Compte d'Avoir
 ```
+
+- Mise en production : voir [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md) (nginx, Gunicorn, Docker, cron, sauvegardes).
+- Changements d'API à intégrer côté frontend : [../docs/API_CHANGEMENTS_FRONTEND.md](../docs/API_CHANGEMENTS_FRONTEND.md).
+- Après une migration sur une base existante : `python manage.py build_thumbnails` (miniatures des œuvres).
+- `FIELD_ENCRYPTION_KEY` chiffre les IBAN et numéros mobile money : **la sauvegarder**, sans elle ces données sont illisibles.
 
 Paiements : il n'y a pas encore de prestataire réel, le **simulateur** est le moyen de paiement officiel
 (`PAYMENT_SIMULATION_ENABLED=True`, valeur par défaut). Voir « Moyens de paiement » plus bas.

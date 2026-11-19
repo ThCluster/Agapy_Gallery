@@ -44,6 +44,13 @@ class PublicMethodField(serializers.ChoiceField):
         super().__init__(choices=[Method.CARD, Method.MOMO], **kwargs)
 
 
+class VisitorMethodField(serializers.ChoiceField):
+    """Visites et dons : carte, mobile money, ou Compte d'Avoir si l'appelant est connecté."""
+
+    def __init__(self, **kwargs):
+        super().__init__(choices=[Method.CARD, Method.MOMO, Method.WALLET], **kwargs)
+
+
 class SignupPaymentSerializer(serializers.Serializer):
     artist = serializers.CharField(max_length=80, help_text="Identifiant renvoyé par l'inscription (champ id).")
     method = PublicMethodField()
@@ -57,7 +64,7 @@ class PayerSerializer(serializers.Serializer):
 
 class VisitPaymentSerializer(PayerSerializer):
     artist = serializers.CharField(max_length=80)
-    method = PublicMethodField()
+    method = VisitorMethodField()
     region = serializers.ChoiceField(choices=Region.choices, help_text="Zone de résidence du visiteur.")
 
 
@@ -65,7 +72,7 @@ class DonationSerializer(PayerSerializer):
     artist = serializers.CharField(max_length=80)
     amount = serializers.DecimalField(max_digits=12, decimal_places=2)
     region = serializers.ChoiceField(choices=Region.choices)
-    method = PublicMethodField()
+    method = VisitorMethodField()
     message = serializers.CharField(max_length=500, required=False, allow_blank=True, default="")
 
     def validate(self, attrs):

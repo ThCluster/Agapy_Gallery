@@ -51,7 +51,8 @@ class LedgerEntryAdmin(ReadOnlyAdmin):
 class PayoutRequestAdmin(admin.ModelAdmin):
     list_display = ("created_at", "artist", "amount", "currency", "channel", "destination", "status", "processed_at")
     list_filter = ("status", "channel", "currency")
-    search_fields = ("artist__slug", "destination")
+    # « destination » est chiffré en base : on ne peut pas y chercher
+    search_fields = ("artist__slug",)
     readonly_fields = ("artist", "amount", "currency", "channel", "destination", "status", "created_at",
                        "processed_at", "processed_by")
     actions = ["mark_paid", "reject"]

@@ -1,0 +1,11 @@
+# Lu par BuildKit pour deploy/Dockerfile (contexte : backend/) : rien de secret ni de local dans l'image
+.env
+.env.*
+!.env.example
+.venv/
+**/__pycache__/
+*.pyc
+*.sqlite3
+media/
+staticfiles/
+.git/

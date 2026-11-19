@@ -10,7 +10,7 @@ from django.contrib.admin import helpers
 from django.template.response import TemplateResponse
 from django.utils.html import format_html
 
-from . import services
+from . import access, services
 from .models import Artwork, ArtworkStatus, Gallery
 
 
@@ -44,9 +44,9 @@ class ReasonForm(forms.Form):
 
 @admin.register(Artwork)
 class ArtworkAdmin(admin.ModelAdmin):
-    list_display = ("thumbnail", "title", "artist", "discipline", "status", "submitted_at", "published_at",
+    list_display = ("thumb", "title", "artist", "discipline", "status", "submitted_at", "published_at",
                     "recommended", "team_favorite", "view_count")
-    list_display_links = ("thumbnail", "title")
+    list_display_links = ("thumb", "title")
     list_filter = (StatusFilter, "discipline", "recommended", "team_favorite", "is_free")
     list_editable = ("recommended", "team_favorite")
     search_fields = ("title", "slug", "artist__artist_name", "artist__org_name", "artist__last_name", "artist__user__phone")
@@ -65,12 +65,16 @@ class ArtworkAdmin(admin.ModelAdmin):
     )
 
     @admin.display(description="")
-    def thumbnail(self, obj):
-        return format_html('<img src="{}" style="height:48px;border-radius:4px">', obj.image.url) if obj.image else ""
+    def thumb(self, obj):
+        url = access.file_url(obj.thumbnail) or (access.protected_url(None, obj, "image", "owner") if obj.image else "")
+        return format_html('<img src="{}" style="height:48px;border-radius:4px">', url) if url else ""
 
     @admin.display(description="aperçu")
     def preview(self, obj):
-        return format_html('<img src="{}" style="max-height:320px">', obj.image.url) if obj.image else "—"
+        # Pleine résolution servie par l'endpoint protégé (URL signée réservée au staff)
+        if not obj.image:
+            return "—"
+        return format_html('<img src="{}" style="max-height:320px">', access.protected_url(None, obj, "image", "owner"))
 
     # -- Actions de modération ------------------------------------------------
     @admin.action(description="Valider et publier (prévient l'artiste)")

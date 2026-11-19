@@ -23,4 +23,11 @@ def notification_backends_check(app_configs=None, **kwargs):
             hint="Renseignez EMAIL_URL (serveur SMTP).",
             id="agapy.W002",
         ))
+    if getattr(settings, "NOTIFICATIONS_ASYNC", False) and not getattr(settings, "FIELD_ENCRYPTION_KEY", None):
+        warnings.append(checks.Warning(
+            "NOTIFICATIONS_ASYNC est actif sans FIELD_ENCRYPTION_KEY : les messages ne peuvent pas être "
+            "chiffrés et partent pendant la requête.",
+            hint="Renseignez FIELD_ENCRYPTION_KEY (clé Fernet).",
+            id="agapy.W003",
+        ))
     return warnings

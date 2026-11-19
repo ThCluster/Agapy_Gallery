@@ -11,7 +11,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework.throttling import AnonRateThrottle
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 
 from apps.accounts.models import ArtistProfile, ArtistStatus
@@ -34,6 +34,7 @@ ERROR_STATUS = {
     "payouts_disabled": status.HTTP_409_CONFLICT,
     "payment_closed": status.HTTP_409_CONFLICT,
     "payment_expired": status.HTTP_409_CONFLICT,
+    "self_donation": status.HTTP_403_FORBIDDEN,
 }
 
 logger = logging.getLogger("agapy.payments")
@@ -72,6 +73,13 @@ class PaymentReadThrottle(AnonRateThrottle):
     rate = "120/min"
 
 
+class PaymentCreateUserThrottle(UserRateThrottle):
+    """Même limite pour un compte connecté (AnonRateThrottle ne s'applique qu'aux anonymes)."""
+
+    scope = "payments_create"
+    rate = "30/hour"
+
+
 class PayoutThrottle(AnonRateThrottle):
     scope = "payments_payout"
     rate = "10/hour"
@@ -88,6 +96,13 @@ class PublicView(APIView):
         return 'Bearer realm="api"'
 
 
+class OptionalAuthView(APIView):
+    """Ouverte à tous ; si un jeton d'accès est envoyé, request.user est le compte connecté (Compte d'Avoir)."""
+
+    permission_classes = [AllowAny]
+    throttle_classes = [PaymentCreateThrottle, PaymentCreateUserThrottle]
+
+
 def _active_artist(slug: str) -> ArtistProfile:
     artist = ArtistProfile.objects.filter(slug=slug, status=ArtistStatus.ACTIVE).first()
     if artist is None:
@@ -99,6 +114,8 @@ def _start_response(payment: Payment) -> Response:
     try:
         action = services.start_payment(payment)
     except ProviderError as exc:
+        # Débit du Compte d'Avoir refusé (solde insuffisant…) : pas de paiement « en attente » orphelin
+        services.fail_payment(payment, exc.message)
         raise api_error(exc)
     payment.refresh_from_db()
     return Response({"payment": PaymentStatusSerializer(payment).data, "action": action},
@@ -221,13 +238,12 @@ class SignupPaymentView(PublicView):
 # ---------------------------------------------------------------------------
 # Visites
 # ---------------------------------------------------------------------------
-class VisitPaymentView(PublicView):
+class VisitPaymentView(OptionalAuthView):
     """
     Droit de visite d'une galerie. Galerie gratuite : accès direct, sans paiement (200).
     Sinon un paiement est créé (201) ; une fois payé, GET /payments/<ref>/ renvoie le jeton de visite.
+    method="wallet" (Compte d'Avoir) : compte connecté uniquement, paiement immédiat, jeton dans la réponse.
     """
-
-    throttle_classes = [PaymentCreateThrottle]
 
     @extend_schema(request=VisitPaymentSerializer, responses={201: StartResponse, 200: AccessResponse},
                    tags=["Visites et dons"])
@@ -240,7 +256,7 @@ class VisitPaymentView(PublicView):
             return Response({"access": True, "free": True, "expires_at": None})
         try:
             payment = services.create_visit_payment(artist, s.validated_data["method"], s.validated_data["region"],
-                                                    _payer(s.validated_data))
+                                                    _payer(s.validated_data), payer_user=request.user)
         except (services.PaymentError, ProviderError) as exc:
             raise api_error(exc)
         return _start_response(payment)
@@ -269,10 +285,11 @@ class VisitAccessView(PublicView):
 # ---------------------------------------------------------------------------
 # Dons
 # ---------------------------------------------------------------------------
-class DonationView(PublicView):
-    """Don à un artiste (85 % à l'artiste, 15 % à AGAPY, sans TVA). Indépendant du droit de visite."""
-
-    throttle_classes = [PaymentCreateThrottle]
+class DonationView(OptionalAuthView):
+    """
+    Don à un artiste (85 % à l'artiste, 15 % à AGAPY, sans TVA). Indépendant du droit de visite.
+    method="wallet" : compte connecté uniquement (devise du Compte d'Avoir).
+    """
 
     @extend_schema(request=DonationSerializer, responses={201: StartResponse}, tags=["Visites et dons"])
     def post(self, request):
@@ -282,7 +299,7 @@ class DonationView(PublicView):
         artist = _active_artist(d["artist"])
         try:
             payment = services.create_donation_payment(artist, d["amount"], d["currency"], d["region"], d["method"],
-                                                       _payer(d), message=d["message"])
+                                                       _payer(d), message=d["message"], payer_user=request.user)
         except (services.PaymentError, ProviderError) as exc:
             raise api_error(exc)
         return _start_response(payment)

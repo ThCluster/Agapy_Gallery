@@ -6,6 +6,11 @@ Catalogue AGAPY-GALLERY : galeries des artistes et œuvres publiées.
 - L'ouverture du compte inclut une publication gratuite ; les suivantes sont payantes (p. 9).
 - Toute publication passe par la modération de l'équipe AGAPY avant d'être visible (p. 13).
 """
+import io
+import logging
+import uuid
+
+from django.core.files.base import ContentFile
 from django.core.validators import FileExtensionValidator, MaxValueValidator, MinValueValidator
 from django.db import IntegrityError, models, transaction
 from django.db.models import Max
@@ -14,6 +19,8 @@ from django.utils.text import slugify
 
 from apps.accounts.models import ArtistProfile
 from apps.core.uploads import SafeImageField
+
+logger = logging.getLogger("agapy.catalog")
 
 ARTWORK_IMAGE_MAX_BYTES = 10 * 1024 * 1024
 EXCERPT_MAX_BYTES = 20 * 1024 * 1024
@@ -100,14 +107,53 @@ class ArtworkStatus(models.TextChoices):
     REMOVED = "removed", "Retirée par l'équipe"
 
 
+# Pleines résolutions et extraits : noms aléatoires (non devinables) sous artworks/<artiste>/ ; ce préfixe
+# n'est PAS servi publiquement (voir apps.catalog.media et la règle nginx). Seules les miniatures
+# (artworks/<artiste>/thumbs/) le sont ; le reste passe par /api/v1/catalog/artworks/<slug>/image|excerpt/.
+ARTWORKS_MEDIA_PREFIX = "artworks/"
+THUMBS_DIR = "thumbs"
+
+# Miniature publique (vitrine) : légère, légèrement adoucie
+THUMBNAIL_MAX_SIZE = (480, 720)
+THUMBNAIL_QUALITY = 70
+THUMBNAIL_BLUR_RADIUS = 0.6
+
+
+def _ext_of(filename: str, default: str) -> str:
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else default
+    return ext if ext.isalnum() and len(ext) <= 5 else default
+
+
 def artwork_image_path(instance, filename):
-    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "jpg"
-    return f"artworks/{instance.artist.slug}/{timezone.now():%Y%m%d%H%M%S%f}.{ext}"
+    return f"{ARTWORKS_MEDIA_PREFIX}{instance.artist.slug}/{uuid.uuid4().hex}.{_ext_of(filename, 'jpg')}"
 
 
 def artwork_excerpt_path(instance, filename):
-    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "mp4"
-    return f"artworks/{instance.artist.slug}/extrait-{timezone.now():%Y%m%d%H%M%S%f}.{ext}"
+    return f"{ARTWORKS_MEDIA_PREFIX}{instance.artist.slug}/extrait-{uuid.uuid4().hex}.{_ext_of(filename, 'mp4')}"
+
+
+def artwork_thumbnail_path(instance, filename):
+    return f"{ARTWORKS_MEDIA_PREFIX}{instance.artist.slug}/{THUMBS_DIR}/{uuid.uuid4().hex}.webp"
+
+
+def build_thumbnail_content(image_file) -> ContentFile:
+    """Miniature WebP (480 px de large au plus) d'une image déjà vérifiée et ré-encodée."""
+    from PIL import Image, ImageFilter, ImageOps
+
+    image_file.open("rb")
+    try:
+        with Image.open(image_file) as img:
+            img = ImageOps.exif_transpose(img)
+            img.thumbnail(THUMBNAIL_MAX_SIZE, Image.Resampling.LANCZOS)
+            if img.mode not in ("RGB", "RGBA"):
+                img = img.convert("RGBA" if "A" in img.mode or "transparency" in img.info else "RGB")
+            if THUMBNAIL_BLUR_RADIUS:
+                img = img.filter(ImageFilter.GaussianBlur(THUMBNAIL_BLUR_RADIUS))
+            buf = io.BytesIO()
+            img.save(buf, "WEBP", quality=THUMBNAIL_QUALITY, method=4)
+    finally:
+        image_file.close()
+    return ContentFile(buf.getvalue(), name="thumb.webp")
 
 
 class PublicArtworkQuerySet(models.QuerySet):
@@ -130,6 +176,8 @@ class Artwork(models.Model):
                                    validators=[MinValueValidator(0)])
     # JPEG / PNG / WebP vérifiés puis ré-encodés (métadonnées EXIF/GPS supprimées) : voir apps.core.uploads
     image = SafeImageField("image", upload_to=artwork_image_path, max_bytes=ARTWORK_IMAGE_MAX_BYTES)
+    # Miniature publique générée à l'enregistrement (la pleine résolution n'est servie qu'aux visiteurs autorisés)
+    thumbnail = models.ImageField("miniature", upload_to=artwork_thumbnail_path, blank=True, editable=False)
     excerpt = models.FileField(
         "extrait (30 s max)", upload_to=artwork_excerpt_path, blank=True,
         validators=[FileExtensionValidator(EXCERPT_EXTENSIONS)],
@@ -178,10 +226,39 @@ class Artwork(models.Model):
     def __str__(self):
         return self.title
 
+    @classmethod
+    def from_db(cls, db, field_names, values):
+        instance = super().from_db(db, field_names, values)
+        instance._thumbnail_source = instance.__dict__.get("image")
+        return instance
+
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = self._unique_slug()
         super().save(*args, **kwargs)
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None and "image" not in update_fields:
+            return
+        source = getattr(self, "_thumbnail_source", None)
+        if self.image and (not self.thumbnail or str(self.image.name) != str(source or "")):
+            self.build_thumbnail()
+
+    def build_thumbnail(self) -> bool:
+        """(Re)génère la miniature publique à partir de l'image. Renvoie False si l'image est illisible."""
+        if not self.image:
+            return False
+        try:
+            content = build_thumbnail_content(self.image)
+        except Exception:  # fichier absent ou illisible : l'œuvre reste enregistrée, sans miniature
+            logger.warning("Miniature impossible pour l'œuvre %s (%s)", self.pk, self.image.name, exc_info=True)
+            return False
+        old = self.thumbnail.name if self.thumbnail else ""
+        self.thumbnail.save("thumb.webp", content, save=False)
+        Artwork.objects.filter(pk=self.pk).update(thumbnail=self.thumbnail.name)
+        if old and old != self.thumbnail.name:
+            self.thumbnail.storage.delete(old)
+        self._thumbnail_source = self.image.name
+        return True
 
     def _unique_slug(self) -> str:
         base = slugify(self.title)[:80] or "oeuvre"

@@ -54,6 +54,8 @@ class CatalogSecurityTests(BaseTestCase):
 
     def published(self, **extra):
         artwork = Artwork.objects.get(slug=self.create(**extra)["id"])
+        Artwork.objects.filter(pk=artwork.pk).update(status=ArtworkStatus.PENDING_REVIEW)
+        artwork.refresh_from_db()
         services.approve_artwork(artwork)
         return artwork
 

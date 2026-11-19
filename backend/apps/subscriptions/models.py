@@ -83,8 +83,16 @@ class SubscriptionReminder(models.Model):
 
 
 class Wallet(models.Model):
+    """
+    Appartient soit à un artiste (`artist`), soit à un visiteur inscrit (`user`) : exactement l'un des deux.
+    Les artistes « Les Artistes tout comme les clients peuvent disposer de Compte d'Avoir » (cahier p. 10).
+    """
+
     artist = models.OneToOneField("accounts.ArtistProfile", on_delete=models.CASCADE, related_name="wallet",
-                                  verbose_name="artiste")
+                                  null=True, blank=True, verbose_name="artiste")
+    user = models.OneToOneField("accounts.User", on_delete=models.CASCADE, related_name="wallet",
+                                null=True, blank=True, verbose_name="visiteur",
+                                help_text="Compte d'Avoir d'un visiteur inscrit (sans profil artiste).")
     is_active = models.BooleanField("activé", default=False,
                                     help_text="Facultatif : l'artiste l'active ou le désactive à tout moment.")
     balance = models.DecimalField("solde", max_digits=12, decimal_places=2, default=0)
@@ -95,9 +103,23 @@ class Wallet(models.Model):
     class Meta:
         verbose_name = "Compte d'Avoir"
         verbose_name_plural = "Comptes d'Avoir"
+        constraints = [
+            models.CheckConstraint(
+                condition=(models.Q(artist__isnull=False, user__isnull=True)
+                           | models.Q(artist__isnull=True, user__isnull=False)),
+                name="wallet_single_owner",
+            ),
+        ]
 
     def __str__(self):
-        return f"{self.artist} — {self.balance} {self.currency}"
+        return f"{self.owner_label} — {self.balance} {self.currency}"
+
+    @property
+    def owner_label(self) -> str:
+        if self.artist_id:
+            return str(self.artist)
+        visitor = getattr(self.user, "visitor", None) if self.user_id else None
+        return str(visitor or self.user or "?")
 
 
 class WalletEntry(models.Model):

@@ -3,11 +3,11 @@ from decimal import Decimal
 from django.utils import timezone
 from rest_framework import serializers
 
+from apps.core.uploads import ImageValidator, MediaValidator, check_media_duration, rounded_seconds
+from apps.payments.models import Method
 from apps.payments.serializers import PaymentSummarySerializer  # noqa: F401  (réexporté)
 
-from apps.core.uploads import ImageValidator, MediaValidator
-from apps.payments.models import Method
-
+from . import access
 from .models import (
     ARTWORK_IMAGE_MAX_BYTES,
     EXCERPT_EXTENSIONS,
@@ -21,6 +21,17 @@ from .models import (
 
 def _size(obj) -> list[float]:
     return [float(obj.height_cm), float(obj.width_cm)]
+
+
+def _media_fields(request, obj, reason: str | None) -> dict:
+    """image / excerpt (URL relatives de l'endpoint protégé, ou None si verrouillé), thumbnail, locked."""
+    locked = reason is None
+    return {
+        "image": None if locked or not obj.image else access.protected_url(request, obj, "image", reason),
+        "excerpt": None if locked or not obj.excerpt else access.protected_url(request, obj, "excerpt", reason),
+        "thumbnail": access.file_url(obj.thumbnail),
+        "locked": locked,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -40,14 +51,14 @@ class MyArtworkSerializer(serializers.ModelSerializer):
         model = Artwork
         fields = [
             "id", "slug", "title", "summary", "technique", "discipline", "height_cm", "width_cm", "size",
-            "image", "excerpt", "excerpt_duration", "frame",
+            "image", "thumbnail", "excerpt", "excerpt_duration", "frame",
             "author_name", "author_contact", "copyright_office", "copyright_contact", "owner_certified",
             "is_free", "recommended", "team_favorite",
             "status", "publication_settled", "moderation_reason",
             "submitted_at", "published_at", "view_count", "created_at", "updated_at",
         ]
         read_only_fields = [
-            "slug", "recommended", "team_favorite", "status", "publication_settled", "moderation_reason",
+            "slug", "thumbnail", "recommended", "team_favorite", "status", "publication_settled", "moderation_reason",
             "submitted_at", "published_at", "view_count", "created_at", "updated_at",
         ]
         extra_kwargs = {
@@ -58,6 +69,13 @@ class MyArtworkSerializer(serializers.ModelSerializer):
     def get_size(self, obj) -> list[float]:
         return _size(obj)
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # L'artiste voit toujours ses fichiers : URL relatives signées (valables quelques heures)
+        media = _media_fields(self.context.get("request"), instance, "owner")
+        data.update({k: media[k] for k in ("image", "excerpt", "thumbnail")})
+        return data
+
     def validate_image(self, image):
         # JPEG / PNG / WebP réels, 10 Mo au plus : codes file_type, file_too_large, image_too_large
         ImageValidator(ARTWORK_IMAGE_MAX_BYTES)(image)
@@ -67,6 +85,10 @@ class MyArtworkSerializer(serializers.ModelSerializer):
         # Signature du fichier conforme à son extension, 20 Mo au plus : codes file_type, file_too_large
         if excerpt:
             MediaValidator(EXCERPT_EXTENSIONS, EXCERPT_MAX_BYTES, label="L'extrait")(excerpt)
+            # Durée réelle mesurée (mutagen / ffprobe) : elle remplace la durée déclarée quand elle est connue
+            self._measured_excerpt = check_media_duration(
+                excerpt, EXCERPT_MAX_SECONDS, code="excerpt_too_long",
+                message="L'extrait ne doit pas dépasser 30 secondes.")
         return excerpt
 
     def validate_excerpt_duration(self, value):
@@ -87,6 +109,8 @@ class MyArtworkSerializer(serializers.ModelSerializer):
                 code="owner_certification_required")
         excerpt = attrs.get("excerpt", self.instance.excerpt if self.instance else None)
         duration = attrs.get("excerpt_duration", self.instance.excerpt_duration if self.instance else None)
+        if getattr(self, "_measured_excerpt", None) is not None:
+            attrs["excerpt_duration"] = duration = rounded_seconds(self._measured_excerpt, EXCERPT_MAX_SECONDS)
         if excerpt and duration is None:
             raise serializers.ValidationError(
                 {"excerpt_duration": "Indiquez la durée de l'extrait (30 secondes maximum)."},
@@ -129,23 +153,52 @@ class MyGallerySerializer(serializers.ModelSerializer):
 # Public
 # ---------------------------------------------------------------------------
 class PublicArtworkSerializer(serializers.ModelSerializer):
+    """
+    Œuvre publique. `thumbnail` (miniature) est toujours fourni ; `image` et `excerpt` (pleine résolution,
+    servis par /catalog/artworks/<slug>/image|excerpt/) seulement si la galerie est gratuite, si la requête
+    porte un droit de visite valide (X-Visit-Token) ou pour l'artiste et le staff. Sinon null et `locked=true`.
+    """
+
     id = serializers.CharField(source="slug")
     artist_id = serializers.CharField(source="artist.slug")
     artist_name = serializers.CharField(source="artist.display_name")
     size = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField(help_text="URL relative de la pleine résolution, ou null si verrouillée.")
+    thumbnail = serializers.SerializerMethodField(help_text="URL relative (/media/…) de la miniature publique.")
+    excerpt = serializers.SerializerMethodField(help_text="URL relative de l'extrait, ou null (absent ou verrouillé).")
+    locked = serializers.SerializerMethodField(help_text="Vrai si un droit de visite est nécessaire.")
 
     class Meta:
         model = Artwork
         fields = [
             "id", "title", "artist_id", "artist_name", "summary", "technique", "discipline", "size",
-            "height_cm", "width_cm", "image", "excerpt", "excerpt_duration", "frame",
+            "height_cm", "width_cm", "image", "thumbnail", "locked", "excerpt", "excerpt_duration", "frame",
             "author_name", "copyright_office", "is_free", "recommended", "team_favorite",
             "published_at", "view_count",
         ]
         read_only_fields = fields
 
+    def _media(self, obj) -> dict:
+        cache = self.context.setdefault("_artwork_media", {})
+        if obj.pk not in cache:
+            request = self.context.get("request")
+            cache[obj.pk] = _media_fields(request, obj, access.access_reason(request, obj) if request else None)
+        return cache[obj.pk]
+
     def get_size(self, obj) -> list[float]:
         return _size(obj)
+
+    def get_image(self, obj) -> str | None:
+        return self._media(obj)["image"]
+
+    def get_thumbnail(self, obj) -> str | None:
+        return self._media(obj)["thumbnail"]
+
+    def get_excerpt(self, obj) -> str | None:
+        return self._media(obj)["excerpt"]
+
+    def get_locked(self, obj) -> bool:
+        return self._media(obj)["locked"]
 
 
 class PublicArtistSerializer(serializers.Serializer):
@@ -158,7 +211,7 @@ class PublicArtistSerializer(serializers.Serializer):
     country = serializers.CharField()
     address = serializers.SerializerMethodField()
     cover = serializers.SerializerMethodField()
-    photo = serializers.ImageField()
+    photo = serializers.SerializerMethodField(help_text="URL relative (/media/…) de la photo, ou null.")
     free = serializers.SerializerMethodField()
     free_until = serializers.SerializerMethodField()
     artwork_count = serializers.SerializerMethodField()
@@ -190,8 +243,11 @@ class PublicArtistSerializer(serializers.Serializer):
         works = self._works(obj)
         if not works:
             return None
-        # URL relative (/media/…), comme les champs image : passe par le proxy du frontend
-        return works[0].image.url
+        # Miniature publique (jamais la pleine résolution), URL relative (/media/…) : passe par le proxy du frontend
+        return access.file_url(works[0].thumbnail)
+
+    def get_photo(self, obj) -> str | None:
+        return access.file_url(obj.photo)
 
     def get_free(self, obj) -> bool:
         return self._gallery(obj).currently_free
@@ -227,7 +283,8 @@ class PublicArtistDetailSerializer(PublicArtistSerializer):
         return works[0].copyright_office if works else ""
 
     def get_socials(self, obj) -> list[dict]:
-        links = [("Instagram", obj.instagram), ("Facebook", obj.facebook), ("Site web", obj.website)]
+        links = [("Instagram", obj.instagram), ("Facebook", obj.facebook), ("X", obj.twitter),
+                 ("TikTok", obj.tiktok), ("Site web", obj.website)]
         return [{"label": label, "url": url} for label, url in links if url]
 
     def get_artworks(self, obj) -> list[dict]:

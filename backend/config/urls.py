@@ -1,9 +1,11 @@
 from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from django.views.generic import RedirectView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+
+from apps.catalog.media import debug_media_urlpatterns
+from apps.core.health import healthz
 
 admin.site.site_header = "Administration AGAPY-GALLERY"
 admin.site.site_title = "AGAPY-GALLERY"
@@ -12,6 +14,7 @@ admin.site.index_title = "Tableau de bord"
 urlpatterns = [
     # Le backend ne sert que l'API et l'administration : la racine renvoie vers le site
     path("", RedirectView.as_view(url=settings.FRONTEND_URL, permanent=False)),
+    path("healthz", healthz, name="healthz"),  # sonde de santé (base + cache), sans authentification
     path(settings.ADMIN_URL, admin.site.urls),  # chemin configurable (ADMIN_URL dans .env)
     path("api/v1/auth/", include("apps.accounts.urls.auth")),
     path("api/v1/accounts/", include("apps.accounts.urls.accounts")),
@@ -22,10 +25,12 @@ urlpatterns = [
     path("api/v1/site/", include("apps.site_content.urls")),
     path("api/v1/dashboards/", include("apps.dashboards.urls")),
     path("api/v1/forum/", include("apps.forum.urls")),
+    path("api/v1/visitors/", include("apps.visitors.urls")),
     # Documentation de l'API (réservée au staff hors DEBUG : SPECTACULAR_SETTINGS["SERVE_PERMISSIONS"])
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),
 ]
 
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    # Développement : /media/ servi par Django, sauf les pleines résolutions d'œuvres (protégées par le catalogue)
+    urlpatterns += debug_media_urlpatterns()

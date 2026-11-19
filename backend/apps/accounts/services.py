@@ -10,7 +10,7 @@ from django.conf import settings
 from django.core import signing
 from django.core.cache import cache
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django.utils import timezone
 
 from apps.notifications.services import send_email, send_sms
@@ -20,6 +20,7 @@ from .models import ArtistProfile, ArtistStatus, PasswordResetCode, User
 
 # Liste rouge d'au moins 3 mois après une œuvre inappropriée (cahier des charges p. 13)
 RED_LIST_DAYS = 90
+from . import fingerprints
 from .tokens import revoke_all_tokens
 from .validators import PASSWORD_RULE
 
@@ -281,3 +282,77 @@ def exclude_artist(artist: ArtistProfile) -> None:
     artist.user.is_active = False
     artist.user.save(update_fields=["is_active"])
     revoke_all_tokens(artist.user)
+
+
+# ---------------------------------------------------------------------------
+# Contournement des sanctions : un artiste exclu ou sur liste rouge qui se réinscrit avec un
+# autre numéro (cahier des charges p. 13) est reconnu à ses coordonnées (e-mail, IBAN, mobile
+# money, numéro), comparées par empreintes car l'IBAN et le numéro momo sont chiffrés en base.
+# ---------------------------------------------------------------------------
+BANNED_MESSAGE = "L'inscription n'a pas pu aboutir. Contactez l'équipe AGAPY-GALLERY."
+
+
+def sanction_matches(*, email="", iban="", momo_number="", phone="", exclude_pk=None) -> dict:
+    """
+    Comptes sanctionnés qui partagent une coordonnée avec celles données.
+    Renvoie {"excluded": [(profil, [coordonnées])], "red_listed": [...]}.
+    """
+    email_fp = fingerprints.email_fingerprint(email)
+    iban_fp = fingerprints.iban_fingerprint(iban)
+    numbers = {fp for fp in (fingerprints.number_fingerprint(momo_number), fingerprints.number_fingerprint(phone)) if fp}
+    q = Q()
+    if email_fp:
+        q |= Q(email_fingerprint=email_fp)
+    if iban_fp:
+        q |= Q(iban_fingerprint=iban_fp)
+    if numbers:
+        q |= Q(momo_fingerprint__in=numbers) | Q(phone_fingerprint__in=numbers)
+    result = {"excluded": [], "red_listed": []}
+    if not q:
+        return result
+    sanctioned = Q(status=ArtistStatus.EXCLUDED) | Q(red_listed_until__gte=timezone.localdate())
+    qs = ArtistProfile.objects.filter(q).filter(sanctioned)
+    if exclude_pk:
+        qs = qs.exclude(pk=exclude_pk)
+    for other in qs.only("pk", "slug", "status", "red_listed_until", *ArtistProfile.FINGERPRINT_FIELDS):
+        shared = []
+        if email_fp and other.email_fingerprint == email_fp:
+            shared.append("e-mail")
+        if iban_fp and other.iban_fingerprint == iban_fp:
+            shared.append("IBAN")
+        if numbers & {other.momo_fingerprint, other.phone_fingerprint}:
+            shared.append("numéro")
+        key = "excluded" if other.status == ArtistStatus.EXCLUDED else "red_listed"
+        result[key].append((other, shared))
+    return result
+
+
+def describe_matches(matches: list) -> str:
+    parts = [f"{other.slug} ({', '.join(shared)})" for other, shared in matches]
+    return "; ".join(parts)
+
+
+def flag_reason_for(matches: dict) -> str:
+    """Texte du signalement « à vérifier » (vide s'il n'y a rien à signaler)."""
+    reasons = []
+    if matches["excluded"]:
+        reasons.append("Coordonnées communes avec un compte exclu : " + describe_matches(matches["excluded"]))
+    if matches["red_listed"]:
+        reasons.append("Coordonnées communes avec un compte sur liste rouge : " + describe_matches(matches["red_listed"]))
+    return " | ".join(reasons)[:255]
+
+
+def flag_if_sanction_evasion(profile: ArtistProfile) -> str:
+    """
+    À appeler après un changement de coordonnées (versements, e-mail) d'un compte existant :
+    on signale à l'équipe sans bloquer (l'équipe décide). Renvoie le motif ajouté, ou "".
+    """
+    matches = sanction_matches(email=profile.user.email, iban=profile.iban, momo_number=profile.momo_number,
+                               phone=profile.user.phone, exclude_pk=profile.pk)
+    reason = flag_reason_for(matches)
+    if reason and reason not in profile.flagged_reason:
+        profile.flagged_reason = reason
+        profile.save(update_fields=["flagged_reason", "updated_at"])
+        logger.warning("Compte %s signalé : %s", profile.slug, reason)
+        return reason
+    return ""

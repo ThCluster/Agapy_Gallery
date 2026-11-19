@@ -19,5 +19,6 @@ def renewal_paid(payment):
 
 @on_paid("wallet_topup")
 def wallet_topup_paid(payment):
-    if payment.artist_id:
+    # Recharge d'un artiste (payment.artist) ou d'un visiteur inscrit (payment.payer_user)
+    if payment.artist_id or payment.payer_user_id:
         services.credit_topup(payment)
